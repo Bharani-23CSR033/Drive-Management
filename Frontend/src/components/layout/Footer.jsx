@@ -9,7 +9,6 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
 
-          {/* Brand */}
           <div className="md:col-span-2 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-[#004643] rounded-lg flex items-center justify-center">
@@ -23,30 +22,24 @@ const Footer = () => {
               Streamlining campus placement drives for students, admins, and companies — all in one place.
             </p>
             <div className="flex items-center gap-3 pt-1">
-              {[Github, Linkedin, Mail].map((Icon, i) => (
-                
-                  key={i}
-                  href="#"
-                  className="p-2 rounded-lg text-[#6B7280] hover:text-[#004643] hover:bg-[#004643]/10 transition-all"
-                >
-                  <Icon size={16} />
-                </a>
-              ))}
+              <a href="#" className="p-2 rounded-lg text-[#6B7280] hover:text-[#004643] hover:bg-[#004643]/10 transition-all">
+                <Github size={16} />
+              </a>
+              <a href="#" className="p-2 rounded-lg text-[#6B7280] hover:text-[#004643] hover:bg-[#004643]/10 transition-all">
+                <Linkedin size={16} />
+              </a>
+              <a href="#" className="p-2 rounded-lg text-[#6B7280] hover:text-[#004643] hover:bg-[#004643]/10 transition-all">
+                <Mail size={16} />
+              </a>
             </div>
           </div>
 
-          {/* Links */}
           <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">
-              Platform
-            </h4>
+            <h4 className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">Platform</h4>
             <ul className="space-y-2">
               {['Student Portal', 'Admin Panel', 'Company Access', 'Drive Calendar'].map((item) => (
                 <li key={item}>
-                  <Link
-                    to="#"
-                    className="text-sm text-[#6B7280] hover:text-[#004643] dark:hover:text-[#E6F4F1] transition-colors"
-                  >
+                  <Link to="#" className="text-sm text-[#6B7280] hover:text-[#004643] dark:hover:text-[#E6F4F1] transition-colors">
                     {item}
                   </Link>
                 </li>
@@ -55,16 +48,11 @@ const Footer = () => {
           </div>
 
           <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">
-              Support
-            </h4>
+            <h4 className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">Support</h4>
             <ul className="space-y-2">
               {['Help Center', 'Contact Us', 'Privacy Policy', 'Terms of Use'].map((item) => (
                 <li key={item}>
-                  <Link
-                    to="#"
-                    className="text-sm text-[#6B7280] hover:text-[#004643] dark:hover:text-[#E6F4F1] transition-colors"
-                  >
+                  <Link to="#" className="text-sm text-[#6B7280] hover:text-[#004643] dark:hover:text-[#E6F4F1] transition-colors">
                     {item}
                   </Link>
                 </li>
@@ -74,12 +62,8 @@ const Footer = () => {
         </div>
 
         <div className="mt-8 pt-6 border-t border-[#E5E7EB] dark:border-[#1F4D4A] flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-xs text-[#6B7280]">
-            © {new Date().getFullYear()} PlaceDrive. All rights reserved.
-          </p>
-          <p className="text-xs text-[#6B7280]">
-            Built with ❤️ for campus placements
-          </p>
+          <p className="text-xs text-[#6B7280]">© {new Date().getFullYear()} PlaceDrive. All rights reserved.</p>
+          <p className="text-xs text-[#6B7280]">Built for campus placements</p>
         </div>
       </div>
     </footer>
