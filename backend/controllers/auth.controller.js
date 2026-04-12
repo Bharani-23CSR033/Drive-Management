@@ -20,6 +20,7 @@ const sanitizeUser = (user) => {
 };
 
 const register = async (req, res, next) => {
+  let createdUser = null;
   try {
     const { name, email, password, role } = req.body;
 
@@ -43,6 +44,7 @@ const register = async (req, res, next) => {
       password: hashedPassword,
       role,
     });
+    createdUser = user;
 
     const token = generateToken(user);
 
@@ -52,6 +54,9 @@ const register = async (req, res, next) => {
       message: "Registration successful",
     });
   } catch (error) {
+    if (createdUser) {
+      await User.deleteOne({ _id: createdUser._id });
+    }
     return next(error);
   }
 };
