@@ -62,7 +62,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-8 pt-6 border-t border-[#E5E7EB] dark:border-[#1F4D4A] flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-xs text-[#6B7280]">© {new Date().getFullYear()} PlaceDrive. All rights reserved.</p>
+          <p className="text-xs text-[#6B7280]">© {new Date().getFullYear()} PlacementDrive. All rights reserved.</p>
           <p className="text-xs text-[#6B7280]">Built for campus placements</p>
         </div>
       </div>
