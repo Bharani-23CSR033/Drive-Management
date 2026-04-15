@@ -1,8 +1,7 @@
 // src/components/layout/Footer.jsx
 
 import { Link } from 'react-router-dom';
-import { BriefcaseBusiness, Github, Linkedin, Mail } from 'lucide-react';
-
+import { BriefcaseBusiness, GitBranch, Linkedin, Mail } from 'lucide-react';
 const Footer = () => {
   return (
     <footer className="bg-white dark:bg-[#143C3A] border-t border-[#E5E7EB] dark:border-[#1F4D4A] mt-auto">
