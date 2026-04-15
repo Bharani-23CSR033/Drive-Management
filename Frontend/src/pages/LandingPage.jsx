@@ -1,9 +1,20 @@
 // src/pages/LandingPage.jsx
 
+import { useRef } from 'react';
+import HeroSection from '../components/landing/HeroSection';
+import FeaturesSection from '../components/landing/FeaturesSection';
+import HowItWorks from '../components/landing/HowItWorks';
+import TestimonialsSection from '../components/landing/TestimonialsSection';
+
 const LandingPage = () => {
+  const featuresRef = useRef(null);
+
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-[#004643] font-semibold text-xl">Landing Page — Coming Soon</p>
+    <div className="overflow-x-hidden">
+      <HeroSection featuresRef={featuresRef} />
+      <FeaturesSection ref={featuresRef} />
+      <HowItWorks />
+      <TestimonialsSection />
     </div>
   );
 };
