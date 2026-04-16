@@ -1,7 +1,8 @@
 // src/components/layout/Footer.jsx
 
 import { Link } from 'react-router-dom';
-import { BriefcaseBusiness, GitBranch, Linkedin, Mail } from 'lucide-react';
+import { BriefcaseBusiness, GitBranch, ExternalLink, Mail } from 'lucide-react';
+
 const Footer = () => {
   return (
     <footer className="bg-white dark:bg-[#143C3A] border-t border-[#E5E7EB] dark:border-[#1F4D4A] mt-auto">
@@ -22,10 +23,10 @@ const Footer = () => {
             </p>
             <div className="flex items-center gap-3 pt-1">
               <a href="#" className="p-2 rounded-lg text-[#6B7280] hover:text-[#004643] hover:bg-[#004643]/10 transition-all">
-                <Github size={16} />
+                <GitBranch size={16} />
               </a>
               <a href="#" className="p-2 rounded-lg text-[#6B7280] hover:text-[#004643] hover:bg-[#004643]/10 transition-all">
-                <Linkedin size={16} />
+                <ExternalLink size={16} />
               </a>
               <a href="#" className="p-2 rounded-lg text-[#6B7280] hover:text-[#004643] hover:bg-[#004643]/10 transition-all">
                 <Mail size={16} />
@@ -61,7 +62,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-8 pt-6 border-t border-[#E5E7EB] dark:border-[#1F4D4A] flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-xs text-[#6B7280]">© {new Date().getFullYear()} PlacementDrive. All rights reserved.</p>
+          <p className="text-xs text-[#6B7280]">© {new Date().getFullYear()} PlaceDrive. All rights reserved.</p>
           <p className="text-xs text-[#6B7280]">Built for campus placements</p>
         </div>
       </div>
