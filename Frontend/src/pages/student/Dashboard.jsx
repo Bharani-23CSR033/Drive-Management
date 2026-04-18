@@ -358,7 +358,7 @@ const Dashboard = () => {
           </div>
 
           {/* Big metric */}
-          <div className="bg-[#004643] rounded-xl p-5 text-center space-y-1">
+          <div className="bg-[#004440] rounded-xl p-5 text-center space-y-1">
             <p className="text-4xl font-bold text-white">33%</p>
             <p className="text-white/60 text-xs">Applications shortlisted</p>
             <p className="text-white/40 text-xs">4 of 12 drives</p>
