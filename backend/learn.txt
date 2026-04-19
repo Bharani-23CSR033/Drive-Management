@@ -2,3 +2,4 @@ explore Server.js ;
 explore app.js ;   
 learning basics ;
 auth learning;
+student route;
