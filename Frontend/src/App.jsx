@@ -45,26 +45,30 @@ import NotFound from './pages/shared/NotFound';
 import Notifications from './pages/shared/Notifications';
 import Calendar from './pages/shared/Calendar';
 
-// Landing Page
+// Landing Page (to be created)
 import LandingPage from './pages/LandingPage';
 
-// ─── Protected Route ────────────────────────────────────────────────
+// ─── Protected Route ───────────────────────────────────────────────
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user } = useAuthStore();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (allowedRoles && !allowedRoles.includes(user?.role)) return <Navigate to="/login" replace />;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user?.role)) {
+    return <Navigate to="/login" replace />;
+  }
+
   return children;
 };
 
-// ─── Dashboard Layout ───────────────────────────────────────────────
+// ─── Dashboard Layout (Sidebar + TopBar) ───────────────────────────
 const DashboardLayout = ({ children, darkMode, toggleDarkMode }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div
-      className="flex min-h-screen transition-theme"
-      style={{ background: 'var(--bg-primary)' }}
-    >
+    <div className="flex min-h-screen bg-[#FAFAFA] dark:bg-[#0F2F2C]">
       <Sidebar />
       <div className="flex-1 flex flex-col md:ml-60 transition-all duration-300">
         <TopBar
@@ -72,10 +76,7 @@ const DashboardLayout = ({ children, darkMode, toggleDarkMode }) => {
           toggleDarkMode={toggleDarkMode}
           onMobileMenuOpen={() => setMobileMenuOpen(!mobileMenuOpen)}
         />
-        <main
-          className="flex-1 px-6 lg:px-8 py-6"
-          style={{ background: 'var(--bg-primary)' }}
-        >
+        <main className="flex-1 px-6 lg:px-8 py-6">
           {children}
         </main>
       </div>
@@ -83,14 +84,13 @@ const DashboardLayout = ({ children, darkMode, toggleDarkMode }) => {
   );
 };
 
-// ─── Public Layout ──────────────────────────────────────────────────
+// ─── Public Layout (Navbar + Footer) ───────────────────────────────
 const PublicLayout = ({ children, darkMode, toggleDarkMode }) => (
-  <div
-    className="flex flex-col min-h-screen transition-theme"
-    style={{ background: 'var(--bg-primary)' }}
-  >
+  <div className="flex flex-col min-h-screen">
     <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-    <main className="flex-1">{children}</main>
+    <main className="flex-1">
+      {children}
+    </main>
     <Footer />
   </div>
 );
@@ -103,7 +103,7 @@ const App = () => {
 
   const toggleDarkMode = () => {
     setDarkMode((prev) => {
-      localStorage.setItem('darkMode', String(!prev));
+      localStorage.setItem('darkMode', !prev);
       return !prev;
     });
   };
@@ -124,156 +124,221 @@ const App = () => {
           toastOptions={{
             duration: 3000,
             style: {
-              background: 'var(--bg-card)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-color)',
+              background: darkMode ? '#143C3A' : '#fff',
+              color: darkMode ? '#E6F4F1' : '#111827',
+              border: `1px solid ${darkMode ? '#1F4D4A' : '#E5E7EB'}`,
               borderRadius: '12px',
               fontSize: '14px',
-              boxShadow: 'var(--shadow-md)',
-            },
-            success: {
-              iconTheme: { primary: 'var(--accent)', secondary: '#fff' },
             },
           }}
         />
 
         <Routes>
-          {/* Public */}
-          <Route path="/" element={
-            <PublicLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-              <PageWrapper><LandingPage /></PageWrapper>
-            </PublicLayout>
-          } />
-          <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
-          <Route path="/signup" element={<PageWrapper><Signup /></PageWrapper>} />
-          <Route path="/forgot-password" element={<PageWrapper><ForgotPassword /></PageWrapper>} />
+          {/* Public Routes */}
+          <Route
+            path="/"
+            element={
+              <PublicLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                <PageWrapper><LandingPage /></PageWrapper>
+              </PublicLayout>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <PageWrapper><Login /></PageWrapper>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <PageWrapper><Signup /></PageWrapper>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <PageWrapper><ForgotPassword /></PageWrapper>
+            }
+          />
 
-          {/* Student */}
-          <Route path="/student/dashboard" element={
-            <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><StudentDashboard /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/student/drives" element={
-            <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><DriveList /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/student/drives/:id" element={
-            <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><DriveDetail /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/student/drives/:id/apply" element={
-            <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><Application /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/student/profile" element={
-            <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><StudentProfile /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/student/feedback" element={
-            <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><Feedback /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
+          {/* Student Routes */}
+          <Route
+            path="/student/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><StudentDashboard /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/drives"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><DriveList /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/drives/:id"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><DriveDetail /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/drives/:id/apply"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><Application /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/profile"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><StudentProfile /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/feedback"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><Feedback /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
 
-          {/* Admin */}
-          <Route path="/admin/dashboard" element={
-            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><AdminDashboard /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/drives" element={
-            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><ManageDrives /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/students" element={
-            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><StudentList /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/analytics" element={
-            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><Analytics /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/attendance" element={
-            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><Attendance /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/reports" element={
-            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><Reports /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
+          {/* Admin Routes */}
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><AdminDashboard /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/drives"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><ManageDrives /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/students"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><StudentList /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><Analytics /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/attendance"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><Attendance /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/reports"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><Reports /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
 
-          {/* Company */}
-          <Route path="/company/dashboard" element={
-            <ProtectedRoute allowedRoles={[ROLES.COMPANY]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><CompanyDashboard /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/company/post-drive" element={
-            <ProtectedRoute allowedRoles={[ROLES.COMPANY]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><PostDrive /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/company/applicants/:driveId" element={
-            <ProtectedRoute allowedRoles={[ROLES.COMPANY]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><Applicants /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
+          {/* Company Routes */}
+          <Route
+            path="/company/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.COMPANY]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><CompanyDashboard /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/company/post-drive"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.COMPANY]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><PostDrive /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/company/applicants/:driveId"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.COMPANY]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><Applicants /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
 
-          {/* Shared */}
-          <Route path="/notifications" element={
-            <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.ADMIN, ROLES.COMPANY]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><Notifications /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/calendar" element={
-            <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.ADMIN, ROLES.COMPANY]}>
-              <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                <PageWrapper><Calendar /></PageWrapper>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
+          {/* Shared Routes */}
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.ADMIN, ROLES.COMPANY]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><Notifications /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.ADMIN, ROLES.COMPANY]}>
+                <DashboardLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                  <PageWrapper><Calendar /></PageWrapper>
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
 
           {/* 404 */}
           <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
