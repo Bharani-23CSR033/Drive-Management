@@ -62,14 +62,17 @@ const Sidebar = () => {
     <motion.aside
       animate={{ width: collapsed ? 72 : 240 }}
       transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-30 overflow-hidden theme-sidebar transition-theme"
+      className="
+        hidden md:flex flex-col
+        fixed left-0 top-0 bottom-0 z-30
+        bg-white dark:bg-[#143C3A]
+        border-r border-[#E5E7EB] dark:border-[#1F4D4A]
+        shadow-sm overflow-hidden
+      "
     >
       {/* Logo */}
-      <div
-        className="h-16 flex items-center px-4 gap-3 flex-shrink-0"
-        style={{ borderBottom: '1px solid var(--border-color)' }}
-      >
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent)' }}>
+      <div className="h-16 flex items-center px-4 border-b border-[#E5E7EB] dark:border-[#1F4D4A] gap-3">
+        <div className="w-8 h-8 bg-[#004643] rounded-lg flex items-center justify-center flex-shrink-0">
           <BriefcaseBusiness size={16} className="text-white" />
         </div>
         <AnimatePresence>
@@ -79,8 +82,7 @@ const Sidebar = () => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.2 }}
-              className="font-bold text-base tracking-tight whitespace-nowrap"
-              style={{ color: 'var(--accent)' }}
+              className="font-bold text-[#004643] dark:text-[#E6F4F1] text-base tracking-tight whitespace-nowrap"
             >
               PlaceDrive
             </motion.span>
@@ -89,7 +91,7 @@ const Sidebar = () => {
       </div>
 
       {/* Nav Links */}
-      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto no-scrollbar">
+      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {links.map((link) => {
           const Icon = link.icon;
           const isActive = location.pathname === link.to;
@@ -101,25 +103,10 @@ const Sidebar = () => {
                 flex items-center gap-3 px-3 py-2.5 rounded-xl
                 transition-all duration-200 group
                 ${isActive
-                  ? 'theme-nav-active shadow-sm'
-                  : ''
+                  ? 'bg-[#004643] text-white shadow-sm'
+                  : 'text-[#6B7280] hover:bg-[#004643]/10 hover:text-[#004643] dark:hover:text-[#E6F4F1]'
                 }
               `}
-              style={!isActive ? {
-                color: 'var(--text-secondary)',
-              } : {}}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'var(--accent-light)';
-                  e.currentTarget.style.color = 'var(--accent)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = '';
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                }
-              }}
             >
               <Icon size={18} className="flex-shrink-0" />
               <AnimatePresence>
@@ -141,10 +128,7 @@ const Sidebar = () => {
       </nav>
 
       {/* Bottom: User + Logout */}
-      <div
-        className="p-3 space-y-2 flex-shrink-0"
-        style={{ borderTop: '1px solid var(--border-color)' }}
-      >
+      <div className="p-3 border-t border-[#E5E7EB] dark:border-[#1F4D4A] space-y-2">
         <div className="flex items-center gap-3 px-2 py-2">
           <Avatar name={user?.name || 'User'} size="sm" />
           <AnimatePresence>
@@ -155,16 +139,10 @@ const Sidebar = () => {
                 exit={{ opacity: 0 }}
                 className="flex-1 min-w-0"
               >
-                <p
-                  className="text-sm font-medium truncate"
-                  style={{ color: 'var(--text-primary)' }}
-                >
+                <p className="text-sm font-medium text-[#111827] dark:text-[#E6F4F1] truncate">
                   {user?.name || 'User'}
                 </p>
-                <p
-                  className="text-xs truncate capitalize"
-                  style={{ color: 'var(--text-muted)' }}
-                >
+                <p className="text-xs text-[#6B7280] truncate capitalize">
                   {user?.role || 'student'}
                 </p>
               </motion.div>
@@ -174,8 +152,12 @@ const Sidebar = () => {
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/10 dark:hover:text-red-400"
-          style={{ color: 'var(--text-muted)' }}
+          className="
+            w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+            text-[#6B7280] hover:bg-red-50 hover:text-red-600
+            dark:hover:bg-red-900/20 dark:hover:text-red-400
+            transition-all duration-200
+          "
         >
           <LogOut size={18} className="flex-shrink-0" />
           <AnimatePresence>
@@ -196,12 +178,15 @@ const Sidebar = () => {
       {/* Collapse Toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-20 w-6 h-6 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all duration-200 z-10"
-        style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          color: 'var(--text-secondary)',
-        }}
+        className="
+          absolute -right-3 top-20
+          w-6 h-6 bg-white dark:bg-[#143C3A]
+          border border-[#E5E7EB] dark:border-[#1F4D4A]
+          rounded-full flex items-center justify-center
+          shadow-sm hover:shadow-md
+          text-[#6B7280] hover:text-[#004643]
+          transition-all duration-200 z-10
+        "
       >
         {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>

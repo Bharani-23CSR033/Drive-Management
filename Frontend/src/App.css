@@ -3,87 +3,47 @@
 #root {
   width: 100%;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
-/* Light page background — soft blue-gray gradient */
-:not(.dark) #root {
-  background: linear-gradient(135deg, #F0F2F8 0%, #ECEEF8 40%, #F2F0FB 100%);
+* {
+  box-sizing: border-box;
 }
 
-/* Dark page background — pure black */
-.dark #root {
-  background: #070709;
+html {
+  scroll-behavior: smooth;
 }
 
-/* Dashboard layout shift for sidebar */
-.dashboard-content {
-  transition: margin-left 0.3s ease;
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Smooth page transitions */
-.page-enter {
-  opacity: 0;
-  transform: translateY(12px);
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
 }
 
-.page-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.35s ease, transform 0.35s ease;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-/* Card glass shimmer on light mode */
-:not(.dark) .theme-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
+::-webkit-scrollbar-thumb {
+  background: #004643;
+  border-radius: 999px;
 }
 
-/* Pure solid cards on dark mode */
-.dark .theme-card {
-  background: #111118;
-  backdrop-filter: none;
+::-webkit-scrollbar-thumb:hover {
+  background: #036b64;
 }
 
-/* Active sidebar item glow in dark */
-.dark .theme-nav-active {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
-/* Accent colored text */
-.accent-text {
-  color: var(--accent);
-}
-
-/* Subtle background dot pattern for light mode hero */
-:not(.dark) .hero-bg {
-  background-image:
-    radial-gradient(circle at 20% 50%, rgba(79, 70, 229, 0.06) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
-    radial-gradient(circle at 50% 80%, rgba(79, 70, 229, 0.04) 0%, transparent 50%);
-}
-
-.dark .hero-bg {
-  background-image:
-    radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(79, 70, 229, 0.06) 0%, transparent 50%);
-}
-
-/* Remove default button outline */
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* Input placeholder */
-::placeholder {
-  color: var(--text-muted);
-  opacity: 1;
-}
-
-/* Selection color */
-::selection {
-  background: var(--accent-medium);
-  color: var(--text-primary);
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
