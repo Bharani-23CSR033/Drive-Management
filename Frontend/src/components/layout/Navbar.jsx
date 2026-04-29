@@ -40,7 +40,7 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
           fixed top-0 left-0 right-0 z-40
           transition-all duration-300
           ${scrolled
-            ? 'bg-white/90 dark:bg-[#0F2F2C]/90 backdrop-blur-md shadow-md border-b border-[#E5E7EB] dark:border-[#1F4D4A]'
+            ? 'theme-glass shadow-md border-b border-[var(--border-color)]'
             : 'bg-transparent'
           }
         `}
@@ -49,10 +49,10 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 bg-[#004643] rounded-lg flex items-center justify-center group-hover:bg-[#036b64] transition-colors">
+            <div className="w-8 h-8 bg-[var(--accent)] rounded-lg flex items-center justify-center group-hover:bg-[var(--accent-hover)] transition-colors shadow-sm">
               <BriefcaseBusiness size={18} className="text-white" />
             </div>
-            <span className="font-bold text-[#004643] dark:text-[#E6F4F1] text-lg tracking-tight">
+            <span className="font-bold text-[var(--accent)] dark:text-[var(--dark-text)] text-lg tracking-tight">
               PlaceDrive
             </span>
           </Link>
@@ -66,8 +66,8 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
                 className={`
                   text-sm font-medium transition-colors duration-200
                   ${location.pathname === link.to
-                    ? 'text-[#004643] dark:text-[#E6F4F1]'
-                    : 'text-[#6B7280] hover:text-[#004643] dark:hover:text-[#E6F4F1]'
+                    ? 'text-[var(--accent)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--accent)]'
                   }
                 `}
               >
@@ -80,14 +80,14 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
           <div className="flex items-center gap-3">
             <button
               onClick={toggleDarkMode}
-              className="p-2 rounded-lg text-[#6B7280] hover:text-[#004643] hover:bg-gray-100 dark:hover:bg-[#1F4D4A] dark:hover:text-[#E6F4F1] transition-all"
+              className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--accent-light)] transition-all"
             >
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
-                <button className="relative p-2 rounded-lg text-[#6B7280] hover:text-[#004643] hover:bg-gray-100 dark:hover:bg-[#1F4D4A] transition-all">
+                <button className="relative p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--accent-light)] transition-all">
                   <Bell size={18} />
                   <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
                 </button>
@@ -104,10 +104,9 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
               </div>
             )}
 
-            {/* Mobile Menu Toggle */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden p-2 rounded-lg text-[#6B7280] hover:bg-gray-100 dark:hover:bg-[#1F4D4A] transition-all"
+              className="md:hidden p-2 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--accent-light)] transition-all"
             >
               {mobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -123,20 +122,21 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="fixed top-16 left-0 right-0 z-30 bg-white dark:bg-[#0F2F2C] border-b border-[#E5E7EB] dark:border-[#1F4D4A] shadow-lg md:hidden"
+            className="fixed top-16 left-0 right-0 z-30 border-b border-[var(--border-color)] shadow-lg md:hidden"
+            style={{ background: 'var(--bg-card)' }}
           >
             <div className="px-6 py-4 flex flex-col gap-4">
               {navLinks.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="text-sm font-medium text-[#6B7280] hover:text-[#004643] dark:hover:text-[#E6F4F1] transition-colors"
+                  className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
                 >
                   {link.label}
                 </Link>
               ))}
               {!isAuthenticated && (
-                <div className="flex flex-col gap-2 pt-2 border-t border-[#E5E7EB] dark:border-[#1F4D4A]">
+                <div className="flex flex-col gap-2 pt-2 border-t border-[var(--border-color)]">
                   <Link to="/login">
                     <Button variant="ghost" size="sm" fullWidth>Login</Button>
                   </Link>
