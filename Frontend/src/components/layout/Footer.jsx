@@ -103,7 +103,7 @@ const Footer = () => {
             © {new Date().getFullYear()} PlaceDrive. All rights reserved.
           </p>
           <p className="text-xs text-[#6B7280]">
-            Built for campus placements
+            Built for campus Placements
           </p>
         </div>
       </div>
