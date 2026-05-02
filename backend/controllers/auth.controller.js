@@ -19,6 +19,14 @@ const sanitizeUser = (user) => {
   };
 };
 
+const getMe = async (req, res) => {
+  return res.status(200).json({
+    success: true,
+    data: { user: sanitizeUser(req.user) },
+    message: "Current user fetched",
+  });
+};
+
 const register = async (req, res, next) => {
   let createdUser = null;
   try {
@@ -202,6 +210,7 @@ module.exports = {
   register,
   login,
   logout,
+  getMe,
   forgotPassword,
   verifyOtp,
   resetPassword,

@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
+const addJsonTransform = require("../utils/addJsonTransform");
 
 const userSchema = new mongoose.Schema(
   {
@@ -19,6 +20,10 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+addJsonTransform(userSchema, (ret) => {
+  ret.cgpa = ret.CGPA;
+});
 
 userSchema.methods.comparePassword = function comparePassword(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);

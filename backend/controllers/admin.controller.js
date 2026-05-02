@@ -58,10 +58,20 @@ const getAllStudents = async (req, res, next) => {
       User.countDocuments(filter),
     ]);
 
+    const studentIds = students.map((student) => student._id);
+    const counts = await Application.aggregate([
+      { $match: { student: { $in: studentIds } } },
+      { $group: { _id: "$student", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((entry) => [String(entry._id), entry.count]));
+
     return res.status(200).json({
       success: true,
       data: {
-        students,
+        students: students.map((student) => ({
+          ...student.toJSON(),
+          applications: countMap.get(String(student._id)) || 0,
+        })),
         pagination: {
           page,
           limit,

@@ -1,9 +1,0 @@
-explore Server.js ;
-explore app.js ;   
-learning basics ;
-auth learning;
-student route;
-drive-route ;
-application management ;
-admin route;
-company route;

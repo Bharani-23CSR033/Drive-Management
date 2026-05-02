@@ -4,6 +4,40 @@ const Drive = require("../models/Drive");
 const Application = require("../models/Application");
 const generateToken = require("../utils/generateToken");
 
+const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
+
+const displayStatus = (status) => {
+  const statusMap = {
+    applied: "Applied",
+    shortlisted: "Shortlisted",
+    rejected: "Rejected",
+    selected: "Selected",
+  };
+
+  return statusMap[String(status || "").trim().toLowerCase()] || status;
+};
+
+const formatApplicant = (application) => {
+  const student = application.student || {};
+
+  return {
+    id: application.id,
+    applicationId: application.id,
+    studentId: student.id || student._id,
+    name: student.name,
+    email: student.email,
+    phone: student.phone || "",
+    college: student.college || "",
+    branch: student.branch || "",
+    cgpa: student.cgpa ?? student.CGPA ?? 0,
+    year: student.year || "",
+    skills: student.skills || [],
+    status: displayStatus(application.status),
+    appliedDate: application.createdAt ? new Date(application.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "",
+    resumeUrl: student.resumeUrl || "",
+  };
+};
+
 const sanitizeUser = (user) => ({
   _id: user._id,
   name: user.name,
@@ -77,10 +111,21 @@ const loginCompany = async (req, res, next) => {
 const getCompanyDrives = async (req, res, next) => {
   try {
     const drives = await Drive.find({ company: req.user._id }).sort({ createdAt: -1 });
+    const driveIds = drives.map((drive) => drive._id);
+    const counts = await Application.aggregate([
+      { $match: { drive: { $in: driveIds } } },
+      { $group: { _id: "$drive", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((entry) => [String(entry._id), entry.count]));
 
     return res.status(200).json({
       success: true,
-      data: { drives },
+      data: {
+        drives: drives.map((drive) => ({
+          ...drive.toJSON(),
+          applicants: countMap.get(String(drive._id)) || 0,
+        })),
+      },
       message: "Company drives fetched",
     });
   } catch (error) {
@@ -107,7 +152,7 @@ const getCompanyApplicants = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      data: { applications },
+      data: { applications: applications.map(formatApplicant) },
       message: "Applicants fetched",
     });
   } catch (error) {
@@ -118,10 +163,10 @@ const getCompanyApplicants = async (req, res, next) => {
 const updateCompanyApplicantStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const normalizedStatus = normalizeStatus(req.body.status);
 
     const allowed = ["shortlisted", "rejected", "selected"];
-    if (!allowed.includes(status)) {
+    if (!allowed.includes(normalizedStatus)) {
       return res.status(400).json({ success: false, data: {}, message: "Invalid status" });
     }
 
@@ -134,7 +179,7 @@ const updateCompanyApplicantStatus = async (req, res, next) => {
       return res.status(403).json({ success: false, data: {}, message: "Not allowed for this application" });
     }
 
-    application.status = status;
+    application.status = normalizedStatus;
     application.updatedBy = req.user._id;
     await application.save();
 

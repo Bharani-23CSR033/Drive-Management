@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const addJsonTransform = require("../utils/addJsonTransform");
 
 const notificationSchema = new mongoose.Schema(
   {
@@ -11,5 +12,7 @@ const notificationSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+addJsonTransform(notificationSchema);
 
 module.exports = mongoose.model("Notification", notificationSchema);

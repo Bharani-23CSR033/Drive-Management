@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const addJsonTransform = require("../utils/addJsonTransform");
 
 const applicationSchema = new mongoose.Schema(
   {
@@ -13,6 +14,19 @@ const applicationSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+addJsonTransform(applicationSchema, (ret) => {
+  const statusMap = {
+    applied: "Applied",
+    shortlisted: "Shortlisted",
+    rejected: "Rejected",
+    selected: "Selected",
+  };
+
+  ret.driveId = ret.drive?.id || ret.drive?._id?.toString?.() || ret.drive;
+  ret.studentId = ret.student?.id || ret.student?._id?.toString?.() || ret.student;
+  ret.status = statusMap[ret.status] || ret.status;
+});
 
 applicationSchema.index({ student: 1, drive: 1 }, { unique: true });
 

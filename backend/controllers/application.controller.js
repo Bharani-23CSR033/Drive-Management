@@ -1,6 +1,40 @@
 const Application = require("../models/Application");
 const Drive = require("../models/Drive");
 
+const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
+
+const displayStatus = (status) => {
+  const statusMap = {
+    applied: "Applied",
+    shortlisted: "Shortlisted",
+    rejected: "Rejected",
+    selected: "Selected",
+  };
+
+  return statusMap[String(status || "").trim().toLowerCase()] || status;
+};
+
+const formatApplicationApplicant = (application) => {
+  const student = application.student || {};
+
+  return {
+    id: application.id,
+    applicationId: application.id,
+    studentId: student.id || student._id,
+    name: student.name,
+    email: student.email,
+    phone: student.phone || "",
+    college: student.college || "",
+    branch: student.branch || "",
+    cgpa: student.cgpa ?? student.CGPA ?? 0,
+    year: student.year || "",
+    skills: student.skills || [],
+    status: displayStatus(application.status),
+    appliedDate: application.createdAt ? new Date(application.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "",
+    resumeUrl: student.resumeUrl || "",
+  };
+};
+
 const getPagination = (query) => {
   const page = Math.max(parseInt(query.page, 10) || 1, 1);
   const limit = Math.max(parseInt(query.limit, 10) || 10, 1);
@@ -73,7 +107,7 @@ const getApplicantsByDrive = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       data: {
-        applications,
+        applications: applications.map(formatApplicationApplicant),
         pagination: {
           page,
           limit,
@@ -94,7 +128,8 @@ const updateApplicationStatus = async (req, res, next) => {
     const { status } = req.body;
 
     const allowed = ["shortlisted", "rejected", "selected"];
-    if (!allowed.includes(status)) {
+    const normalizedStatus = normalizeStatus(status);
+    if (!allowed.includes(normalizedStatus)) {
       return res.status(400).json({ success: false, data: {}, message: "Invalid status" });
     }
 
@@ -107,7 +142,7 @@ const updateApplicationStatus = async (req, res, next) => {
       return res.status(403).json({ success: false, data: {}, message: "Not allowed for this application" });
     }
 
-    application.status = status;
+    application.status = normalizedStatus;
     application.updatedBy = req.user._id;
     await application.save();
 

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const addJsonTransform = require("../utils/addJsonTransform");
 
 const driveSchema = new mongoose.Schema(
   {
@@ -25,5 +26,16 @@ const driveSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+addJsonTransform(driveSchema, (ret) => {
+  ret.role = ret.title;
+  ret.cgpa = ret.eligibility?.cgpa ?? 0;
+  ret.skills = ret.eligibility?.skills ?? [];
+  ret.batch = ret.eligibility?.batch ?? "";
+
+  if (ret.status === "open") ret.status = "Active";
+  else if (ret.status === "closed") ret.status = "Closed";
+  else if (ret.status === "draft") ret.status = "Draft";
+});
 
 module.exports = mongoose.model("Drive", driveSchema);

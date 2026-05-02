@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const addJsonTransform = require("../utils/addJsonTransform");
 
 const feedbackSchema = new mongoose.Schema(
   {
@@ -9,5 +10,7 @@ const feedbackSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+addJsonTransform(feedbackSchema);
 
 module.exports = mongoose.model("Feedback", feedbackSchema);

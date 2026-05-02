@@ -1,4 +1,50 @@
 const Drive = require("../models/Drive");
+const Application = require("../models/Application");
+
+const normalizeDriveInput = (body) => {
+  const normalized = { ...body };
+
+  if (normalized.role && !normalized.title) {
+    normalized.title = normalized.role;
+  }
+
+  if (normalized.cgpa !== undefined || normalized.skills !== undefined || normalized.batch !== undefined) {
+    normalized.eligibility = {
+      ...(normalized.eligibility || {}),
+      cgpa: normalized.cgpa !== undefined ? Number(normalized.cgpa) || 0 : normalized.eligibility?.cgpa || 0,
+      skills: Array.isArray(normalized.skills)
+        ? normalized.skills
+        : typeof normalized.skills === "string"
+          ? normalized.skills.split(",").map((item) => item.trim()).filter(Boolean)
+          : normalized.eligibility?.skills || [],
+      batch: normalized.batch || normalized.eligibility?.batch || "",
+    };
+  }
+
+  if (Array.isArray(normalized.rounds) && !normalized.selectionProcess) {
+    normalized.selectionProcess = normalized.rounds
+      .map((round) => round?.name || round?.title || String(round))
+      .filter(Boolean);
+  }
+
+  if (typeof normalized.salary === "string") {
+    const parsedSalary = Number.parseFloat(normalized.salary);
+    normalized.salary = Number.isNaN(parsedSalary) ? normalized.salary : parsedSalary;
+  }
+
+  const statusMap = {
+    active: "open",
+    open: "open",
+    closed: "closed",
+    draft: "draft",
+  };
+  if (normalized.status) {
+    const statusKey = String(normalized.status).trim().toLowerCase();
+    normalized.status = statusMap[statusKey] || normalized.status;
+  }
+
+  return normalized;
+};
 
 const getPagination = (query) => {
   const page = Math.max(parseInt(query.page, 10) || 1, 1);
@@ -43,10 +89,20 @@ const getAllDrives = async (req, res, next) => {
       Drive.countDocuments(filter),
     ]);
 
+    const driveIds = drives.map((drive) => drive._id);
+    const counts = await Application.aggregate([
+      { $match: { drive: { $in: driveIds } } },
+      { $group: { _id: "$drive", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((entry) => [String(entry._id), entry.count]));
+
     return res.status(200).json({
       success: true,
       data: {
-        drives,
+        drives: drives.map((drive) => ({
+          ...drive.toJSON(),
+          applicants: countMap.get(String(drive._id)) || 0,
+        })),
         pagination: {
           page,
           limit,
@@ -71,7 +127,12 @@ const getDriveById = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      data: { drive },
+      data: {
+        drive: {
+          ...drive.toJSON(),
+          applicants: await Application.countDocuments({ drive: drive._id }),
+        },
+      },
       message: "Drive details fetched",
     });
   } catch (error) {
@@ -81,13 +142,14 @@ const getDriveById = async (req, res, next) => {
 
 const createDrive = async (req, res, next) => {
   try {
+    const normalizedPayload = normalizeDriveInput(req.body);
     const payload = {
-      ...req.body,
+      ...normalizedPayload,
       company: req.user._id,
     };
 
-    if (typeof req.body.selectionProcess === "string") {
-      payload.selectionProcess = req.body.selectionProcess
+    if (typeof payload.selectionProcess === "string") {
+      payload.selectionProcess = payload.selectionProcess
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean);
@@ -117,7 +179,9 @@ const updateDrive = async (req, res, next) => {
       return res.status(403).json({ success: false, data: {}, message: "Not allowed for this drive" });
     }
 
-    Object.assign(drive, req.body);
+    const updates = normalizeDriveInput(req.body);
+
+    Object.assign(drive, updates);
     await drive.save();
 
     return res.status(200).json({
