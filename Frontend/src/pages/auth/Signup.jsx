@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import Input from '../../components/common/Input';
+import authApi from '../../api/authApi';
 import { ROLES } from '../../constants/roles';
 import useAuthStore from '../../store/authStore';
 
@@ -41,7 +42,7 @@ const roles = [
 
 const Signup = () => {
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
+  const { setAuth, setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState(ROLES.STUDENT);
 
@@ -58,18 +59,31 @@ const Signup = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1000));
-      const mockUser = { name: data.name, email: data.email, role: data.role };
-      setAuth(mockUser, 'mock-token-123');
+      const response = await authApi.register({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        role: data.role,
+      });
+
+      const token = response?.data?.token;
+      const user = response?.data?.user;
+
+      if (!token || !user) {
+        throw new Error('Invalid registration response');
+      }
+
+      setAuth(user, token);
+      setUser(user);
       toast.success('Account created successfully!');
       const paths = {
         [ROLES.STUDENT]: '/student/dashboard',
         [ROLES.ADMIN]: '/admin/dashboard',
         [ROLES.COMPANY]: '/company/dashboard',
       };
-      navigate(paths[data.role]);
+      navigate(paths[user.role] || '/student/dashboard');
     } catch (err) {
-      toast.error('Something went wrong');
+      toast.error(err?.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }

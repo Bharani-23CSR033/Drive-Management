@@ -1,11 +1,12 @@
 // src/pages/shared/Notifications.jsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell, CheckCircle, BriefcaseBusiness,
   Users, Clock, Trash2, Check,
 } from 'lucide-react';
+import studentApi from '../../api/studentApi';
 
 const containerVariants = {
   hidden: {},
@@ -17,48 +18,111 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
-const initialNotifications = [
-  { id: 1, type: 'shortlisted', title: 'Shortlisted at Google', desc: 'You have been shortlisted for Software Engineer Intern role at Google.', time: '2 hours ago', read: false, icon: CheckCircle, color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' },
-  { id: 2, type: 'drive', title: 'New Drive Posted', desc: 'Microsoft has posted a new drive for SDE Intern. Deadline: Apr 25.', time: '5 hours ago', read: false, icon: BriefcaseBusiness, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' },
-  { id: 3, type: 'reminder', title: 'Deadline Reminder', desc: 'Amazon Backend Developer drive closes in 2 days. Apply now.', time: '1 day ago', read: false, icon: Clock, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' },
-  { id: 4, type: 'drive', title: 'New Drive Posted', desc: 'Razorpay has posted a Full Stack Developer role. Salary: 15 LPA.', time: '1 day ago', read: true, icon: BriefcaseBusiness, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' },
-  { id: 5, type: 'shortlisted', title: 'Application Update', desc: 'Your application to Zoho Full Stack has moved to review stage.', time: '2 days ago', read: true, icon: CheckCircle, color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' },
-  { id: 6, type: 'reminder', title: 'Profile Incomplete', desc: 'Complete your profile to improve your chances of getting shortlisted.', time: '3 days ago', read: true, icon: Users, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' },
-  { id: 7, type: 'drive', title: 'Drive Closed', desc: 'Infosys Systems Engineer drive has been closed. Results will be announced soon.', time: '4 days ago', read: true, icon: BriefcaseBusiness, color: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' },
-];
+const getNotificationIcon = (type) => {
+  const iconMap = {
+    shortlisted: CheckCircle,
+    drive: BriefcaseBusiness,
+    reminder: Clock,
+    update: Clock,
+    default: Bell,
+  };
+  return iconMap[type] || iconMap.default;
+};
+
+const getNotificationColor = (type) => {
+  const colorMap = {
+    shortlisted: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
+    drive: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    reminder: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
+    update: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    default: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+  };
+  return colorMap[type] || colorMap.default;
+};
 
 const Notifications = () => {
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState('All');
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        setLoading(true);
+        const data = await studentApi.getNotifications();
+        setNotifications(data.notifications || []);
+        setError(null);
+      } catch (err) {
+        setError('Failed to load notifications');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotifications();
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markRead = (id) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  const markRead = async (id) => {
+    try {
+      await studentApi.markNotificationRead(id);
+      setNotifications((prev) => prev.map((n) => n._id === id ? { ...n, read: true } : n));
+    } catch (err) {
+      console.error('Failed to mark notification as read', err);
+    }
   };
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllRead = async () => {
+    try {
+      await Promise.all(notifications.filter(n => !n.read).map(n => studentApi.markNotificationRead(n._id)));
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (err) {
+      console.error('Failed to mark all as read', err);
+    }
   };
 
   const deleteNotification = (id) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setNotifications((prev) => prev.filter((n) => n._id !== id));
   };
 
   const clearAll = () => setNotifications([]);
 
   const filtered = notifications.filter((n) => {
     if (filter === 'Unread') return !n.read;
-    if (filter === 'Drives') return n.type === 'drive';
-    if (filter === 'Updates') return n.type === 'shortlisted';
+    if (filter === 'Drives') return n.type === 'drive' || n.type === 'deadline';
+    if (filter === 'Updates') return n.type === 'shortlisted' || n.type === 'update';
     return true;
   });
+
+  const formatTime = (createdAt) => {
+    const now = new Date();
+    const notifDate = new Date(createdAt);
+    const diffMs = now - notifDate;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins} minutes ago`;
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 30) return `${diffDays} days ago`;
+    return notifDate.toLocaleDateString();
+  };
 
   const groupByDate = (notifs) => {
     const groups = {};
     notifs.forEach((n) => {
-      const key = n.time.includes('hour') ? 'Today' :
-        n.time.includes('1 day') ? 'Yesterday' : 'Earlier';
+      const now = new Date();
+      const notifDate = new Date(n.createdAt);
+      const diffDays = Math.floor((now - notifDate) / 86400000);
+
+      let key = 'Earlier';
+      if (diffDays === 0) key = 'Today';
+      else if (diffDays === 1) key = 'Yesterday';
+
       if (!groups[key]) groups[key] = [];
       groups[key].push(n);
     });
@@ -66,6 +130,22 @@ const Notifications = () => {
   };
 
   const grouped = groupByDate(filtered);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004643]"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <p className="text-red-600">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -149,22 +229,23 @@ const Notifications = () => {
               <div className="bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-2xl overflow-hidden">
                 <AnimatePresence>
                   {notifs.map((notif, i) => {
-                    const Icon = notif.icon;
+                    const Icon = getNotificationIcon(notif.type);
+                    const color = getNotificationColor(notif.type);
                     return (
                       <motion.div
-                        key={notif.id}
+                        key={notif._id}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ delay: i * 0.04 }}
-                        onClick={() => markRead(notif.id)}
-                        className={`flex items-start gap-4 px-5 py-4 border-b border-[#E5E7EB] dark:border-[#1F4D4A] last:border-0 cursor-pointer transition-colors ${
+                        onClick={() => markRead(notif._id)}
+                        className={`flex items-start gap-4 px-5 py-4 border-b border-[#E5E7EB] dark:border-[#1F4D4A] last:border-0 cursor-pointer transition-colors group ${
                           !notif.read
                             ? 'bg-[#004643]/3 dark:bg-[#004643]/10 hover:bg-[#004643]/6'
                             : 'hover:bg-[#FAFAFA] dark:hover:bg-[#0F2F2C]/40'
                         }`}
                       >
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${notif.color}`}>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
                           <Icon size={16} />
                         </div>
 
@@ -178,15 +259,15 @@ const Notifications = () => {
                                 <div className="w-2 h-2 bg-[#004643] rounded-full flex-shrink-0" />
                               )}
                               <button
-                                onClick={(e) => { e.stopPropagation(); deleteNotification(notif.id); }}
+                                onClick={(e) => { e.stopPropagation(); deleteNotification(notif._id); }}
                                 className="p-1 rounded-lg text-[#6B7280] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all opacity-0 group-hover:opacity-100"
                               >
                                 <Trash2 size={12} />
                               </button>
                             </div>
                           </div>
-                          <p className="text-xs text-[#6B7280] mt-0.5 leading-relaxed">{notif.desc}</p>
-                          <p className="text-xs text-[#6B7280]/60 mt-1">{notif.time}</p>
+                          <p className="text-xs text-[#6B7280] mt-0.5 leading-relaxed">{notif.message || notif.desc}</p>
+                          <p className="text-xs text-[#6B7280]/60 mt-1">{formatTime(notif.createdAt)}</p>
                         </div>
                       </motion.div>
                     );

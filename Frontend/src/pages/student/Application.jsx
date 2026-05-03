@@ -1,6 +1,6 @@
 // src/pages/student/Application.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,6 +9,9 @@ import {
   BriefcaseBusiness, ChevronRight,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
+import driveApi from '../../api/driveApi';
+import studentApi from '../../api/studentApi';
+import toast from 'react-hot-toast';
 
 const steps = ['Review Profile', 'Upload Resume', 'Confirm & Apply'];
 
@@ -22,14 +25,40 @@ const Application = () => {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const drive = {
-    company: 'Google',
-    abbr: 'G',
+  const [drive, setDrive] = useState({
+    company: 'Company',
+    abbr: 'D',
     color: 'bg-blue-500',
-    role: 'Software Engineer Intern',
-    salary: '8 LPA',
-    deadline: 'April 20, 2026',
-  };
+    role: 'Drive',
+    salary: '-',
+    deadline: '-',
+  });
+
+  useEffect(() => {
+    const fetchDrive = async () => {
+      if (!id) return;
+
+      try {
+        const response = await driveApi.getById(id);
+        const currentDrive = response?.data?.drive;
+        if (currentDrive) {
+          const companyName = currentDrive.company?.name || currentDrive.company || 'Company';
+          setDrive({
+            company: companyName,
+            abbr: companyName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('') || 'D',
+            color: 'bg-blue-500',
+            role: currentDrive.role || currentDrive.title || 'Drive',
+            salary: currentDrive.salary ? `${Math.round((Number(currentDrive.salary) || 0) / 100000)} LPA` : '-',
+            deadline: currentDrive.deadline ? new Date(currentDrive.deadline).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '-',
+          });
+        }
+      } catch {
+        setDrive((current) => current);
+      }
+    };
+
+    fetchDrive();
+  }, [id]);
 
   const profileData = {
     name: user?.name || 'Bhagath K',
@@ -55,10 +84,23 @@ const Application = () => {
   };
 
   const handleSubmit = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setSubmitted(true);
+    try {
+      setLoading(true);
+
+      if (resumeFile) {
+        const formData = new FormData();
+        formData.append('resume', resumeFile);
+        await studentApi.uploadResume(formData);
+      }
+
+      await studentApi.apply({ driveId: id });
+      setSubmitted(true);
+      toast.success('Application submitted');
+    } catch (error) {
+      toast.error(error?.message || 'Failed to submit application');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {

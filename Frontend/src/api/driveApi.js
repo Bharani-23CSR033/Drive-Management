@@ -9,6 +9,7 @@ const driveApi = {
   update: (id, data) => axiosInstance.put(`/drives/${id}`, data),
   delete: (id) => axiosInstance.delete(`/drives/${id}`),
   getApplicants: (id) => axiosInstance.get(`/drives/${id}/applicants`),
+  getCalendarEvents: () => axiosInstance.get('/calendar/events'),
 };
 
 export default driveApi;

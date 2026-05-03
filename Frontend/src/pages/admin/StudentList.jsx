@@ -1,6 +1,6 @@
 // src/pages/admin/StudentList.jsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Filter, Download, ChevronDown,
@@ -8,6 +8,7 @@ import {
   CheckCircle, XCircle, Clock,
 } from 'lucide-react';
 import Modal from '../../components/common/Modal';
+import adminApi from '../../api/adminApi';
 
 const containerVariants = {
   hidden: {},
@@ -19,17 +20,6 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
-const students = [
-  { id: 1, name: 'Arjun Sharma', email: 'arjun@vit.ac.in', phone: '+91 98765 11111', college: 'VIT Chennai', branch: 'CSE', cgpa: 8.5, year: '4th', status: 'Placed', company: 'Google', applications: 8 },
-  { id: 2, name: 'Priya Menon', email: 'priya@psgtech.edu', phone: '+91 98765 22222', college: 'PSG Tech', branch: 'IT', cgpa: 7.8, year: '4th', status: 'Shortlisted', company: 'Amazon', applications: 5 },
-  { id: 3, name: 'Rahul Nair', email: 'rahul@kongu.edu', phone: '+91 98765 33333', college: 'Kongu Engg', branch: 'CSE', cgpa: 7.2, year: '4th', status: 'Applied', company: 'Zoho', applications: 12 },
-  { id: 4, name: 'Sneha Reddy', email: 'sneha@srm.edu.in', phone: '+91 98765 44444', college: 'SRM Univ', branch: 'ECE', cgpa: 8.1, year: '4th', status: 'Placed', company: 'TCS', applications: 6 },
-  { id: 5, name: 'Karthik Raja', email: 'karthik@anna.edu', phone: '+91 98765 55555', college: 'Anna Univ', branch: 'CSE', cgpa: 6.8, year: '4th', status: 'Applied', company: '-', applications: 3 },
-  { id: 6, name: 'Divya Lakshmi', email: 'divya@sastra.edu', phone: '+91 98765 66666', college: 'SASTRA Univ', branch: 'IT', cgpa: 9.1, year: '4th', status: 'Shortlisted', company: 'Microsoft', applications: 4 },
-  { id: 7, name: 'Arun Kumar', email: 'arun@nit.edu', phone: '+91 98765 77777', college: 'NIT Trichy', branch: 'CSE', cgpa: 8.8, year: '4th', status: 'Placed', company: 'Razorpay', applications: 7 },
-  { id: 8, name: 'Meena Iyer', email: 'meena@ceg.edu', phone: '+91 98765 88888', college: 'CEG Anna Univ', branch: 'IT', cgpa: 7.5, year: '4th', status: 'Applied', company: '-', applications: 9 },
-];
-
 const statusStyle = {
   Placed: { text: 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400', icon: CheckCircle },
   Shortlisted: { text: 'text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400', icon: Clock },
@@ -38,13 +28,34 @@ const statusStyle = {
 };
 
 const StudentList = () => {
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [collegeFilter, setCollegeFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selected, setSelected] = useState([]);
 
-  const colleges = ['All', ...new Set(students.map((s) => s.college))];
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        const data = await adminApi.getStudents();
+        setStudents(data.students || []);
+        setError(null);
+      } catch (err) {
+        setError('Failed to load students');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  const colleges = ['All', ...new Set(students.map((s) => s.college).filter(Boolean))];
   const statuses = ['All', 'Placed', 'Shortlisted', 'Applied'];
 
   const filtered = students.filter((s) => {
@@ -60,8 +71,24 @@ const StudentList = () => {
   };
 
   const selectAll = () => {
-    setSelected(selected.length === filtered.length ? [] : filtered.map((s) => s.id));
+    setSelected(selected.length === filtered.length ? [] : filtered.map((s) => s._id));
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004643]"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <p className="text-red-600">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -76,7 +103,7 @@ const StudentList = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#111827] dark:text-[#E6F4F1]">Student List</h1>
           <p className="text-sm text-[#6B7280] dark:text-[#E6F4F1]/50 mt-0.5">
-            {students.length} students · {students.filter((s) => s.status === 'Placed').length} placed
+            {students.length} students
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -147,7 +174,7 @@ const StudentList = () => {
             const StatusIcon = statusStyle[student.status]?.icon || Clock;
             return (
               <motion.div
-                key={student.id}
+                key={student._id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -158,8 +185,8 @@ const StudentList = () => {
                 <div className="col-span-2 flex items-center gap-3">
                   <input
                     type="checkbox"
-                    checked={selected.includes(student.id)}
-                    onChange={() => toggleSelect(student.id)}
+                    checked={selected.includes(student._id)}
+                    onChange={() => toggleSelect(student._id)}
                     className="w-4 h-4 rounded border-[#E5E7EB] text-[#004643] focus:ring-[#004643]"
                   />
                   <div className="w-8 h-8 bg-[#004643] rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -167,27 +194,27 @@ const StudentList = () => {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">{student.name}</p>
-                    <p className="text-xs text-[#6B7280]">{student.branch}</p>
+                    <p className="text-xs text-[#6B7280]">{student.branch || 'N/A'}</p>
                   </div>
                 </div>
 
-                <p className="text-xs text-[#6B7280] truncate pr-2">{student.college}</p>
+                <p className="text-xs text-[#6B7280] truncate pr-2">{student.college || 'N/A'}</p>
 
                 <div>
-                  <p className="text-sm font-bold text-[#111827] dark:text-[#E6F4F1]">{student.cgpa}</p>
+                  <p className="text-sm font-bold text-[#111827] dark:text-[#E6F4F1]">{student.cgpa || student.CGPA || 'N/A'}</p>
                   <div className="w-12 h-1 bg-[#E5E7EB] dark:bg-[#1F4D4A] rounded-full mt-1 overflow-hidden">
                     <div
                       className="h-full bg-[#004643] rounded-full"
-                      style={{ width: `${(student.cgpa / 10) * 100}%` }}
+                      style={{ width: `${((student.cgpa || student.CGPA || 0) / 10) * 100}%` }}
                     />
                   </div>
                 </div>
 
-                <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">{student.applications}</p>
+                <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">{student.applicationCount || 0}</p>
 
                 <span className={`inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusStyle[student.status]?.text}`}>
                   <StatusIcon size={10} />
-                  {student.status}
+                  {student.status || 'Applied'}
                 </span>
 
                 <div className="flex items-center gap-1">
@@ -222,10 +249,9 @@ const StudentList = () => {
               </div>
               <div>
                 <p className="text-base font-bold text-[#111827] dark:text-[#E6F4F1]">{selectedStudent.name}</p>
-                <p className="text-sm text-[#6B7280]">{selectedStudent.branch} · {selectedStudent.year} Year</p>
+                <p className="text-sm text-[#6B7280]">{selectedStudent.branch || 'N/A'} · {selectedStudent.college || 'N/A'}</p>
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${statusStyle[selectedStudent.status]?.text}`}>
-                  {selectedStudent.status}
-                  {selectedStudent.company !== '-' && ` · ${selectedStudent.company}`}
+                  {selectedStudent.status || 'Applied'}
                 </span>
               </div>
             </div>
@@ -233,11 +259,11 @@ const StudentList = () => {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Email', value: selectedStudent.email, icon: Mail },
-                { label: 'Phone', value: selectedStudent.phone, icon: Phone },
-                { label: 'College', value: selectedStudent.college, icon: null },
-                { label: 'CGPA', value: selectedStudent.cgpa, icon: null },
-                { label: 'Applications', value: selectedStudent.applications, icon: null },
-                { label: 'Company', value: selectedStudent.company, icon: null },
+                { label: 'Phone', value: selectedStudent.phone || 'N/A', icon: Phone },
+                { label: 'College', value: selectedStudent.college || 'N/A', icon: null },
+                { label: 'CGPA', value: selectedStudent.cgpa || selectedStudent.CGPA || 'N/A', icon: null },
+                { label: 'Applications', value: selectedStudent.applicationCount || 0, icon: null },
+                { label: 'Branch', value: selectedStudent.branch || 'N/A', icon: null },
               ].map((item, i) => (
                 <div key={i} className="p-3 bg-[#FAFAFA] dark:bg-[#0F2F2C] rounded-xl border border-[#E5E7EB] dark:border-[#1F4D4A]">
                   <p className="text-xs text-[#6B7280]">{item.label}</p>

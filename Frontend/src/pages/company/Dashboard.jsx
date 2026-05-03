@@ -1,6 +1,6 @@
 // src/pages/company/Dashboard.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -12,6 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, LineChart, Line,
 } from 'recharts';
+import companyApi from '../../api/companyApi';
 import useAuthStore from '../../store/authStore';
 
 const containerVariants = {
@@ -62,18 +63,55 @@ const hiringData = [
   { month: 'Jun', hired: 9 },
 ];
 
-const myDrives = [
+const fallbackMyDrives = [
   { id: 1, role: 'Software Engineer Intern', applicants: 45, shortlisted: 12, status: 'Active', deadline: 'Apr 20', daysLeft: 2 },
   { id: 2, role: 'Backend Developer', applicants: 62, shortlisted: 18, status: 'Active', deadline: 'Apr 22', daysLeft: 4 },
   { id: 3, role: 'Full Stack Dev', applicants: 38, shortlisted: 8, status: 'Closed', deadline: 'Apr 10', daysLeft: 0 },
 ];
 
-const recentApplicants = [
+const fallbackRecentApplicants = [
   { name: 'Arjun Sharma', college: 'VIT Chennai', cgpa: 8.5, role: 'SWE Intern', status: 'Shortlisted' },
   { name: 'Priya Menon', college: 'PSG Tech', cgpa: 7.8, role: 'Backend Dev', status: 'Applied' },
   { name: 'Divya Lakshmi', college: 'SASTRA Univ', cgpa: 9.1, role: 'SWE Intern', status: 'Shortlisted' },
   { name: 'Arun Kumar', college: 'NIT Trichy', cgpa: 8.8, role: 'Full Stack', status: 'Selected' },
 ];
+
+const formatDateLabel = (value) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const getDaysLeft = (value) => {
+  if (!value) return 0;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 0;
+  return Math.max(0, Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+};
+
+const getCompanyName = (company) => {
+  if (!company) return 'Company';
+  if (typeof company === 'string') return company;
+  return company.name || company.email || 'Company';
+};
+
+const getAbbr = (company) => {
+  const name = getCompanyName(company);
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('') || 'D';
+};
+
+const mapDrive = (drive) => ({
+  id: drive.id,
+  role: drive.role || drive.title || 'Drive',
+  applicants: drive.applicants || 0,
+  shortlisted: Array.isArray(drive.applications)
+    ? drive.applications.filter((application) => application.status === 'shortlisted').length
+    : drive.shortlisted || 0,
+  status: drive.status || 'Active',
+  deadline: formatDateLabel(drive.deadline),
+  daysLeft: getDaysLeft(drive.deadline),
+});
 
 const statusStyle = {
   Shortlisted: 'text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400',
@@ -98,6 +136,52 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 const CompanyDashboard = () => {
   const { user } = useAuthStore();
+  const [myDrives, setMyDrives] = useState(fallbackMyDrives);
+  const [recentApplicants, setRecentApplicants] = useState(fallbackRecentApplicants);
+  const [dashboardStats, setDashboardStats] = useState({
+    totalApplicants: 145,
+    activeDrives: 2,
+    shortlisted: 38,
+    selected: 12,
+  });
+
+  useEffect(() => {
+    const fetchCompanyDashboard = async () => {
+      try {
+        const drivesResponse = await companyApi.getDrives();
+        const drives = drivesResponse?.data?.drives || [];
+        const mappedDrives = drives.map((drive) => mapDrive(drive));
+        setMyDrives(mappedDrives.length > 0 ? mappedDrives : fallbackMyDrives);
+
+        const applicantResponses = await Promise.all(
+          drives.map((drive) => companyApi.getApplicants(drive.id).catch(() => null))
+        );
+        const applicants = applicantResponses.flatMap((response, index) => {
+          const items = response?.data?.applications || [];
+          return items.map((application) => ({
+            name: application.student?.name || 'Student',
+            college: application.student?.college || '-',
+            cgpa: application.student?.CGPA ?? application.student?.cgpa ?? 0,
+            role: drives[index]?.role || drives[index]?.title || 'Drive',
+            status: application.status,
+          }));
+        });
+
+        setRecentApplicants(applicants.length > 0 ? applicants.slice(0, 4) : fallbackRecentApplicants);
+        setDashboardStats({
+          totalApplicants: drives.reduce((sum, drive) => sum + (drive.applicants || 0), 0),
+          activeDrives: drives.filter((drive) => String(drive.status || '').toLowerCase() !== 'closed').length,
+          shortlisted: applicants.filter((applicant) => String(applicant.status || '').toLowerCase() === 'shortlisted').length,
+          selected: applicants.filter((applicant) => String(applicant.status || '').toLowerCase() === 'selected').length,
+        });
+      } catch {
+        setMyDrives(fallbackMyDrives);
+        setRecentApplicants(fallbackRecentApplicants);
+      }
+    };
+
+    fetchCompanyDashboard();
+  }, []);
 
   return (
     <motion.div
@@ -139,10 +223,10 @@ const CompanyDashboard = () => {
       {/* Stat Cards */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Applicants', value: '145', sub: 'Compare from last month', trend: '+23', pct: '18%', spark: [80, 90, 100, 110, 120, 130, 138, 145], color: '#3B82F6' },
-          { label: 'Active Drives', value: '2', sub: 'Compare from last month', trend: '+1', pct: '50%', spark: [1, 1, 1, 2, 2, 2, 2, 2], color: '#004643' },
-          { label: 'Shortlisted', value: '38', sub: 'Compare from last month', trend: '+8', pct: '26%', spark: [20, 22, 25, 28, 30, 33, 36, 38], color: '#F59E0B' },
-          { label: 'Selected', value: '12', sub: 'Compare from last month', trend: '+4', pct: '50%', spark: [5, 6, 7, 8, 9, 10, 11, 12], color: '#10B981' },
+          { label: 'Total Applicants', value: String(dashboardStats.totalApplicants), sub: 'Compare from last month', trend: '+23', pct: '18%', spark: [80, 90, 100, 110, 120, 130, 138, 145], color: '#3B82F6' },
+          { label: 'Active Drives', value: String(dashboardStats.activeDrives), sub: 'Compare from last month', trend: '+1', pct: '50%', spark: [1, 1, 1, 2, 2, 2, 2, 2], color: '#004643' },
+          { label: 'Shortlisted', value: String(dashboardStats.shortlisted), sub: 'Compare from last month', trend: '+8', pct: '26%', spark: [20, 22, 25, 28, 30, 33, 36, 38], color: '#F59E0B' },
+          { label: 'Selected', value: String(dashboardStats.selected), sub: 'Compare from last month', trend: '+4', pct: '50%', spark: [5, 6, 7, 8, 9, 10, 11, 12], color: '#10B981' },
         ].map((s, i) => (
           <div key={i} className="bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-2xl p-5 space-y-3">
             <div className="flex items-center justify-between">

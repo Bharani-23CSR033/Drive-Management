@@ -1,6 +1,6 @@
 // src/pages/student/Profile.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Mail, Phone, MapPin, BookOpen,
@@ -8,6 +8,7 @@ import {
   CheckCircle, FileText, Award, Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import studentApi from '../../api/studentApi';
 import useAuthStore from '../../store/authStore';
 
 const containerVariants = {
@@ -25,6 +26,7 @@ const Profile = () => {
   const [editMode, setEditMode] = useState(false);
   const [newSkill, setNewSkill] = useState('');
   const [showSkillInput, setShowSkillInput] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [profile, setProfile] = useState({
     name: user?.name || 'Bhagath K',
@@ -47,10 +49,95 @@ const Profile = () => {
 
   const [tempProfile, setTempProfile] = useState({ ...profile });
 
-  const handleSave = () => {
-    setProfile({ ...tempProfile });
-    setEditMode(false);
-    toast.success('Profile updated successfully');
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user?._id) return;
+
+      try {
+        setLoading(true);
+        const [profileResponse, dashboardResponse] = await Promise.all([
+          studentApi.getProfile(user._id),
+          studentApi.getDashboard(),
+        ]);
+
+        const student = profileResponse?.data?.student;
+        if (student) {
+          const mappedProfile = {
+            name: student.name || user?.name || 'Student',
+            email: student.email || user?.email || '',
+            phone: student.phone || '+91 98765 43210',
+            location: student.location || 'Erode, Tamil Nadu',
+            college: student.college || 'Kongu Engineering College',
+            branch: student.branch || student.department || 'Computer Science Engineering',
+            year: student.year || '4th Year',
+            cgpa: student.CGPA ?? student.cgpa ?? '8.2',
+            batch: student.batch || '2022-2026',
+            bio: student.bio || 'Passionate full-stack developer with strong fundamentals in DSA and system design. Looking for SDE roles in product-based companies.',
+            skills: Array.isArray(student.skills) ? student.skills : ['React', 'Node.js', 'Python', 'DSA', 'MongoDB', 'Express.js'],
+            achievements: Array.isArray(student.achievements) && student.achievements.length > 0
+              ? student.achievements
+              : [
+                  'Smart India Hackathon 2024 — Finalist',
+                  'LeetCode — 500+ problems solved',
+                  'GitHub — 200+ contributions',
+                ],
+          };
+
+          setProfile(mappedProfile);
+          setTempProfile(mappedProfile);
+        }
+
+        const stats = dashboardResponse?.data?.stats;
+        if (stats?.appliedCount !== undefined) {
+          setProfile((current) => ({ ...current }));
+          setTempProfile((current) => ({ ...current }));
+        }
+      } catch {
+        setProfile((current) => ({ ...current }));
+        setTempProfile((current) => ({ ...current }));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!user?._id) {
+      toast.error('Unable to update profile');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await studentApi.updateProfile(user._id, {
+        name: tempProfile.name,
+        college: tempProfile.college,
+        CGPA: tempProfile.cgpa,
+        skills: tempProfile.skills,
+      });
+      const student = response?.data?.student;
+      const savedProfile = student
+        ? {
+            ...tempProfile,
+            name: student.name || tempProfile.name,
+            email: student.email || tempProfile.email,
+            college: student.college || tempProfile.college,
+            cgpa: student.CGPA ?? student.cgpa ?? tempProfile.cgpa,
+            skills: Array.isArray(student.skills) ? student.skills : tempProfile.skills,
+          }
+        : { ...tempProfile };
+
+      setProfile(savedProfile);
+      setTempProfile(savedProfile);
+      setEditMode(false);
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      toast.error(error?.message || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancel = () => {
@@ -110,6 +197,7 @@ const Profile = () => {
           ) : (
             <button
               onClick={() => setEditMode(true)}
+              disabled={loading}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#E5E7EB] dark:border-[#1F4D4A] bg-white dark:bg-[#143C3A] text-sm font-medium text-[#111827] dark:text-[#E6F4F1] hover:border-[#004643] transition-all"
             >
               <Edit3 size={14} />

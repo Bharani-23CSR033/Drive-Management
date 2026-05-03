@@ -1,6 +1,6 @@
 // src/pages/admin/Reports.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Download, FileText, Table,
@@ -12,6 +12,8 @@ import {
   Tooltip, ResponsiveContainer,
 } from 'recharts';
 import toast from 'react-hot-toast';
+import adminApi from '../../api/adminApi';
+import driveApi from '../../api/driveApi';
 
 const containerVariants = {
   hidden: {},
@@ -23,7 +25,7 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.45 } },
 };
 
-const reportData = [
+const fallbackReportData = [
   { month: 'Jan', placed: 12, drives: 3 },
   { month: 'Feb', placed: 18, drives: 5 },
   { month: 'Mar', placed: 25, drives: 7 },
@@ -32,7 +34,7 @@ const reportData = [
   { month: 'Jun', placed: 28, drives: 8 },
 ];
 
-const reportTypes = [
+const fallbackReportTypes = [
   {
     id: 'placement',
     title: 'Placement Report',
@@ -67,6 +69,33 @@ const reportTypes = [
   },
 ];
 
+const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const formatSalaryLpa = (salary) => {
+  const numericSalary = Number(salary) || 0;
+  if (!numericSalary) return '-';
+  const lpa = numericSalary / 100000;
+  return `${Number.isInteger(lpa) ? lpa : lpa.toFixed(1)} LPA`;
+};
+
+const formatDateLabel = (value) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const getCompanyName = (company) => {
+  if (!company) return 'Company';
+  if (typeof company === 'string') return company;
+  return company.name || company.email || 'Company';
+};
+
+const createCsv = (headers, rows) => [
+  headers.join(','),
+  ...rows.map((row) => headers.map((header) => `"${String(row[header] ?? '').replace(/"/g, '""')}"`).join(',')),
+].join('\n');
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
     return (
@@ -84,11 +113,152 @@ const CustomTooltip = ({ active, payload, label }) => {
 const Reports = () => {
   const [dateRange, setDateRange] = useState('This Year');
   const [downloading, setDownloading] = useState(null);
+  const [summaryStats, setSummaryStats] = useState({
+    totalDrives: 0,
+    studentsPlaced: 0,
+    avgPackage: '0 LPA',
+    companies: 0,
+    totalStudents: 0,
+  });
+  const [reportData, setReportData] = useState(fallbackReportData);
+  const [reportTypes, setReportTypes] = useState(fallbackReportTypes);
+  const [drives, setDrives] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [attendanceRows, setAttendanceRows] = useState([]);
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const [dashboardResponse, reportsResponse, studentsResponse, drivesResponse] = await Promise.all([
+          adminApi.getDashboard(),
+          adminApi.getReports({ range: dateRange }),
+          adminApi.getStudents({ limit: 1000 }),
+          driveApi.getAll(),
+        ]);
+
+        const reportDrives = reportsResponse?.data?.drives || [];
+        const summary = reportsResponse?.data?.summary || [];
+        const summaryMap = new Map(summary.map((entry) => [String(entry._id), entry]));
+        const liveDrives = (drivesResponse?.data?.drives || []).map((drive) => ({
+          id: drive.id,
+          company: getCompanyName(drive.company),
+          role: drive.role || drive.title || 'Drive',
+          salary: formatSalaryLpa(drive.salary),
+          deadline: formatDateLabel(drive.deadline),
+          status: drive.status || 'Active',
+          applicants: drive.applicants || 0,
+          attendance: Array.isArray(drive.attendance) ? drive.attendance : [],
+        }));
+        const liveStudents = (studentsResponse?.data?.students || []).map((student) => ({
+          id: student.id,
+          name: student.name || 'Student',
+          college: student.college || '-',
+          branch: student.branch || '-',
+          cgpa: student.CGPA ?? student.cgpa ?? 0,
+          applications: student.applications || 0,
+        }));
+
+        const monthlyMap = new Map();
+        liveDrives.forEach((drive) => {
+          const date = new Date(drive.deadline);
+          const month = Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleDateString('en-US', { month: 'short' });
+          const current = monthlyMap.get(month) || { month, placed: 0, drives: 0 };
+          current.drives += 1;
+          current.placed += summaryMap.get(String(drive.id))?.selected || 0;
+          monthlyMap.set(month, current);
+        });
+
+        const orderedMonthly = monthOrder
+          .filter((month) => monthlyMap.has(month))
+          .map((month) => monthlyMap.get(month));
+
+        const attendanceList = liveDrives.flatMap((drive) => (
+          drive.attendance.map((entry) => ({
+            drive: drive.role,
+            company: drive.company,
+            student: entry.student?.name || entry.student?.email || 'Student',
+            status: String(entry.status || '').toLowerCase(),
+            markedAt: entry.markedAt ? new Date(entry.markedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-',
+          }))
+        ));
+
+        const totalSelected = summary.reduce((sum, entry) => sum + (entry.selected || 0), 0);
+        const avgSalary = liveDrives.length > 0
+          ? liveDrives.reduce((sum, drive) => sum + (Number(drive.salary.replace(/[^0-9.]/g, '')) || 0), 0) / liveDrives.length
+          : 0;
+
+        setDrives(liveDrives);
+        setStudents(liveStudents);
+        setAttendanceRows(attendanceList);
+        setReportData(orderedMonthly.length > 0 ? orderedMonthly : fallbackReportData);
+        setSummaryStats({
+          totalDrives: liveDrives.length || dashboardResponse?.data?.totalDrives || 0,
+          studentsPlaced: totalSelected,
+          avgPackage: `${avgSalary ? avgSalary.toFixed(1) : '0'} LPA`,
+          companies: new Set(liveDrives.map((drive) => drive.company)).size,
+          totalStudents: dashboardResponse?.data?.totalStudents || liveStudents.length,
+        });
+        setReportTypes([
+          {
+            id: 'placement',
+            title: 'Placement Report',
+            desc: 'Complete placement summary with company, role, and student details',
+            icon: BriefcaseBusiness,
+            color: 'bg-[#004643]',
+            rows: totalSelected,
+          },
+          {
+            id: 'student',
+            title: 'Student Report',
+            desc: 'All registered students with academic and application details',
+            icon: Users,
+            color: 'bg-blue-500',
+            rows: liveStudents.length,
+          },
+          {
+            id: 'drive',
+            title: 'Drive Summary',
+            desc: 'All placement drives with applicant count and status',
+            icon: FileText,
+            color: 'bg-amber-500',
+            rows: liveDrives.length,
+          },
+          {
+            id: 'attendance',
+            title: 'Attendance Report',
+            desc: 'Student attendance across all recruitment events',
+            icon: CheckCircle,
+            color: 'bg-emerald-500',
+            rows: attendanceList.length,
+          },
+        ]);
+      } catch {
+        setReportData(fallbackReportData);
+        setReportTypes(fallbackReportTypes);
+      }
+    };
+
+    fetchReports();
+  }, [dateRange]);
 
   const handleDownload = async (type, format) => {
     const key = `${type}-${format}`;
     setDownloading(key);
-    await new Promise((r) => setTimeout(r, 1500));
+    const fileName = `${type}-${dateRange.toLowerCase().replace(/\s+/g, '-')}.${format === 'pdf' ? 'txt' : 'csv'}`;
+
+    const datasets = {
+      placement: createCsv(['month', 'placed', 'drives'], reportData),
+      student: createCsv(['name', 'college', 'branch', 'cgpa', 'applications'], students),
+      drive: createCsv(['company', 'role', 'salary', 'deadline', 'status', 'applicants'], drives),
+      attendance: createCsv(['drive', 'company', 'student', 'status', 'markedAt'], attendanceRows),
+    };
+
+    const blob = new Blob([datasets[type] || ''], { type: 'text/plain;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(link.href);
     setDownloading(null);
     toast.success(`${format.toUpperCase()} report downloaded`);
   };
@@ -126,10 +296,10 @@ const Reports = () => {
       {/* Summary Stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Drives', value: '28', trend: '+5 this month', icon: BriefcaseBusiness, color: '#004643' },
-          { label: 'Students Placed', value: '94', trend: '+12 this month', icon: CheckCircle, color: '#10B981' },
-          { label: 'Avg Package', value: '8.4 LPA', trend: '+1.2 from last year', icon: TrendingUp, color: '#3B82F6' },
-          { label: 'Companies', value: '28', trend: '+4 this month', icon: Users, color: '#F59E0B' },
+          { label: 'Total Drives', value: String(summaryStats.totalDrives), trend: '+5 this month', icon: BriefcaseBusiness, color: '#004643' },
+          { label: 'Students Placed', value: String(summaryStats.studentsPlaced), trend: '+12 this month', icon: CheckCircle, color: '#10B981' },
+          { label: 'Avg Package', value: summaryStats.avgPackage, trend: '+1.2 from last year', icon: TrendingUp, color: '#3B82F6' },
+          { label: 'Companies', value: String(summaryStats.companies), trend: '+4 this month', icon: Users, color: '#F59E0B' },
         ].map((stat, i) => {
           const Icon = stat.icon;
           return (

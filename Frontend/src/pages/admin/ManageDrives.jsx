@@ -1,6 +1,6 @@
 // src/pages/admin/ManageDrives.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Edit3, Trash2, X,
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 import toast from 'react-hot-toast';
+import driveApi from '../../api/driveApi';
 
 const containerVariants = {
   hidden: {},
@@ -20,7 +21,7 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
-const initialDrives = [
+const fallbackDrives = [
   { id: 1, company: 'Google', abbr: 'G', color: 'bg-blue-500', role: 'Software Engineer Intern', salary: '8 LPA', location: 'Bangalore', deadline: 'Apr 20', applicants: 45, status: 'Active', type: 'Internship', cgpa: 7.5 },
   { id: 2, company: 'Amazon', abbr: 'A', color: 'bg-amber-500', role: 'Backend Developer', salary: '12 LPA', location: 'Hyderabad', deadline: 'Apr 22', applicants: 62, status: 'Active', type: 'Full Time', cgpa: 7.0 },
   { id: 3, company: 'Microsoft', abbr: 'MS', color: 'bg-blue-700', role: 'SDE Intern', salary: '9 LPA', location: 'Noida', deadline: 'Apr 10', applicants: 38, status: 'Closed', type: 'Internship', cgpa: 8.0 },
@@ -33,8 +34,58 @@ const emptyForm = {
   deadline: '', type: 'Full Time', cgpa: '', status: 'Active',
 };
 
+const formatDateLabel = (value) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const getCompanyName = (company) => {
+  if (!company) return 'Company';
+  if (typeof company === 'string') return company;
+  return company.name || company.email || 'Company';
+};
+
+const getAbbr = (company) => {
+  const name = getCompanyName(company);
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('') || 'D';
+};
+
+const toSalaryLabel = (salary) => {
+  const numericSalary = Number(salary) || 0;
+  if (!numericSalary) return '-';
+  const lpa = numericSalary / 100000;
+  return `${Number.isInteger(lpa) ? lpa : lpa.toFixed(1)} LPA`;
+};
+
+const toSalaryValue = (salary) => {
+  const text = String(salary || '').trim().toLowerCase();
+  const parsed = Number.parseFloat(text);
+  if (Number.isNaN(parsed)) return salary;
+  if (text.includes('lpa') || parsed < 1000) {
+    return Math.round(parsed * 100000);
+  }
+  return parsed;
+};
+
+const mapDrive = (drive) => ({
+  id: drive.id,
+  company: getCompanyName(drive.company),
+  abbr: getAbbr(drive.company),
+  color: ['bg-blue-500', 'bg-amber-500', 'bg-blue-700', 'bg-red-500', 'bg-purple-500', 'bg-teal-600'][Math.abs(String(drive.id).length) % 6],
+  role: drive.role || drive.title || 'Drive',
+  salary: toSalaryLabel(drive.salary),
+  location: drive.location || '-',
+  deadline: formatDateLabel(drive.deadline),
+  applicants: drive.applicants || 0,
+  status: drive.status || 'Active',
+  type: drive.type || 'Full Time',
+  cgpa: drive.cgpa ?? drive.eligibility?.cgpa ?? 0,
+});
+
 const ManageDrives = () => {
-  const [drives, setDrives] = useState(initialDrives);
+  const [drives, setDrives] = useState(fallbackDrives);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [showModal, setShowModal] = useState(false);
@@ -42,6 +93,25 @@ const ManageDrives = () => {
   const [editingDrive, setEditingDrive] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [openMenu, setOpenMenu] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchDrives = async () => {
+      setLoading(true);
+      try {
+        const response = await driveApi.getAll();
+        const list = response?.data?.drives || [];
+        const mapped = list.map((drive) => mapDrive(drive));
+        setDrives(mapped.length > 0 ? mapped : fallbackDrives);
+      } catch {
+        setDrives(fallbackDrives);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDrives();
+  }, []);
 
   const filtered = drives.filter((d) => {
     const matchSearch = d.company.toLowerCase().includes(search.toLowerCase()) ||
@@ -63,39 +133,64 @@ const ManageDrives = () => {
     setOpenMenu(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.company || !form.role || !form.salary) {
       toast.error('Please fill all required fields');
       return;
     }
-    if (editingDrive) {
-      setDrives((prev) => prev.map((d) => d.id === editingDrive.id ? { ...d, ...form } : d));
-      toast.success('Drive updated');
-    } else {
-      const newDrive = {
-        ...form,
-        id: Date.now(),
-        abbr: form.company.slice(0, 2).toUpperCase(),
-        color: 'bg-[#004643]',
-        applicants: 0,
+    try {
+      const payload = {
+        title: form.role,
+        role: form.role,
+        salary: toSalaryValue(form.salary),
+        location: form.location,
+        deadline: form.deadline,
+        type: form.type,
+        cgpa: form.cgpa,
+        status: form.status === 'Active' ? 'open' : 'closed',
       };
-      setDrives((prev) => [newDrive, ...prev]);
-      toast.success('Drive created');
+
+      if (editingDrive?.id) {
+        await driveApi.update(editingDrive.id, payload);
+        toast.success('Drive updated');
+      } else {
+        await driveApi.create(payload);
+        toast.success('Drive created');
+      }
+
+      const refreshed = await driveApi.getAll();
+      const list = refreshed?.data?.drives || [];
+      setDrives(list.map((drive) => mapDrive(drive)));
+      setShowModal(false);
+    } catch (error) {
+      toast.error(error?.message || 'Failed to save drive');
     }
-    setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    setDrives((prev) => prev.filter((d) => d.id !== id));
-    setDeleteModal(null);
-    toast.success('Drive deleted');
+  const handleDelete = async (id) => {
+    try {
+      await driveApi.delete(id);
+      setDrives((prev) => prev.filter((d) => d.id !== id));
+      setDeleteModal(null);
+      toast.success('Drive deleted');
+    } catch (error) {
+      toast.error(error?.message || 'Failed to delete drive');
+    }
   };
 
-  const toggleStatus = (id) => {
-    setDrives((prev) => prev.map((d) =>
-      d.id === id ? { ...d, status: d.status === 'Active' ? 'Closed' : 'Active' } : d
-    ));
-    setOpenMenu(null);
+  const toggleStatus = async (id) => {
+    const drive = drives.find((item) => item.id === id);
+    const nextStatus = drive?.status === 'Active' ? 'closed' : 'open';
+
+    try {
+      await driveApi.update(id, { status: nextStatus });
+      setDrives((prev) => prev.map((item) => (
+        item.id === id ? { ...item, status: nextStatus === 'open' ? 'Active' : 'Closed' } : item
+      )));
+      setOpenMenu(null);
+    } catch (error) {
+      toast.error(error?.message || 'Failed to update drive status');
+    }
   };
 
   return (
@@ -161,7 +256,11 @@ const ManageDrives = () => {
         </div>
 
         <AnimatePresence>
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="py-16 text-center">
+              <p className="text-sm text-[#6B7280]">Loading drives...</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="py-16 text-center">
               <p className="text-sm text-[#6B7280]">No drives found</p>
             </div>
@@ -266,9 +365,9 @@ const ManageDrives = () => {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Company Name *', key: 'company', placeholder: 'e.g. Google' },
+                { label: 'Company Name *', key: 'company', placeholder: 'e.g. Google' },
               { label: 'Role *', key: 'role', placeholder: 'e.g. Software Engineer' },
-              { label: 'Salary', key: 'salary', placeholder: 'e.g. 8 LPA' },
+                { label: 'Salary', key: 'salary', placeholder: 'e.g. 8 LPA' },
               { label: 'Location', key: 'location', placeholder: 'e.g. Bangalore' },
               { label: 'Deadline', key: 'deadline', placeholder: 'e.g. Apr 30' },
               { label: 'Min CGPA', key: 'cgpa', placeholder: 'e.g. 7.5' },

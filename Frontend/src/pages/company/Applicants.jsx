@@ -1,6 +1,6 @@
 // src/pages/company/Applicants.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 import toast from 'react-hot-toast';
+import companyApi from '../../api/companyApi';
 
 const containerVariants = {
   hidden: {},
@@ -21,16 +22,6 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
-const initialApplicants = [
-  { id: 1, name: 'Arjun Sharma', email: 'arjun@vit.ac.in', phone: '+91 98765 11111', college: 'VIT Chennai', branch: 'CSE', cgpa: 8.5, year: '4th', skills: ['React', 'Node.js', 'DSA'], status: 'Shortlisted', appliedDate: 'Apr 10' },
-  { id: 2, name: 'Priya Menon', email: 'priya@psgtech.edu', phone: '+91 98765 22222', college: 'PSG Tech', branch: 'IT', cgpa: 7.8, year: '4th', skills: ['Python', 'ML', 'SQL'], status: 'Applied', appliedDate: 'Apr 11' },
-  { id: 3, name: 'Rahul Nair', email: 'rahul@kongu.edu', phone: '+91 98765 33333', college: 'Kongu Engg', branch: 'CSE', cgpa: 7.2, year: '4th', skills: ['Java', 'Spring', 'MySQL'], status: 'Applied', appliedDate: 'Apr 12' },
-  { id: 4, name: 'Divya Lakshmi', email: 'divya@sastra.edu', phone: '+91 98765 44444', college: 'SASTRA Univ', branch: 'IT', cgpa: 9.1, year: '4th', skills: ['React', 'TypeScript', 'AWS'], status: 'Shortlisted', appliedDate: 'Apr 10' },
-  { id: 5, name: 'Arun Kumar', email: 'arun@nit.edu', phone: '+91 98765 55555', college: 'NIT Trichy', branch: 'CSE', cgpa: 8.8, year: '4th', skills: ['C++', 'DSA', 'System Design'], status: 'Selected', appliedDate: 'Apr 9' },
-  { id: 6, name: 'Meena Iyer', email: 'meena@ceg.edu', phone: '+91 98765 66666', college: 'CEG Anna Univ', branch: 'IT', cgpa: 7.5, year: '4th', skills: ['JavaScript', 'Vue', 'Node.js'], status: 'Rejected', appliedDate: 'Apr 11' },
-  { id: 7, name: 'Karthik Raja', email: 'karthik@anna.edu', phone: '+91 98765 77777', college: 'Anna Univ', branch: 'CSE', cgpa: 6.8, year: '4th', skills: ['Python', 'Django', 'PostgreSQL'], status: 'Applied', appliedDate: 'Apr 13' },
-];
-
 const statusConfig = {
   Applied: { text: 'text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400', icon: Clock },
   Shortlisted: { text: 'text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400', icon: Clock },
@@ -41,11 +32,31 @@ const statusConfig = {
 const Applicants = () => {
   const { driveId } = useParams();
   const navigate = useNavigate();
-  const [applicants, setApplicants] = useState(initialApplicants);
+  const [applicants, setApplicants] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [selected, setSelected] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchApplicants = async () => {
+      setLoading(true);
+      try {
+        const response = await companyApi.getApplicants(driveId);
+        const list = response?.data?.applications || [];
+        setApplicants(list);
+      } catch (error) {
+        toast.error(error?.message || 'Failed to load applicants');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (driveId) {
+      fetchApplicants();
+    }
+  }, [driveId]);
 
   const filtered = applicants.filter((a) => {
     const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -55,9 +66,23 @@ const Applicants = () => {
   });
 
   const updateStatus = (id, status) => {
-    setApplicants((prev) => prev.map((a) => a.id === id ? { ...a, status } : a));
-    setSelectedApplicant((prev) => prev ? { ...prev, status } : null);
-    toast.success(`Candidate ${status.toLowerCase()}`);
+    const normalizedStatus = status.toLowerCase();
+
+    companyApi.updateApplicant(id, { status: normalizedStatus })
+      .then((response) => {
+        const updated = response?.data?.application;
+        if (updated) {
+          setApplicants((prev) => prev.map((a) => a.id === id ? { ...a, status: updated.status } : a));
+          setSelectedApplicant((prev) => (prev ? { ...prev, status: updated.status } : null));
+        } else {
+          setApplicants((prev) => prev.map((a) => a.id === id ? { ...a, status: status } : a));
+          setSelectedApplicant((prev) => (prev ? { ...prev, status } : null));
+        }
+        toast.success(`Candidate ${normalizedStatus}`);
+      })
+      .catch((error) => {
+        toast.error(error?.message || 'Failed to update status');
+      });
   };
 
   const toggleSelect = (id) => {
@@ -65,9 +90,15 @@ const Applicants = () => {
   };
 
   const bulkUpdate = (status) => {
-    setApplicants((prev) => prev.map((a) => selected.includes(a.id) ? { ...a, status } : a));
-    setSelected([]);
-    toast.success(`${selected.length} candidates ${status.toLowerCase()}`);
+    Promise.all(selected.map((id) => companyApi.updateApplicant(id, { status: status.toLowerCase() })))
+      .then(() => {
+        setApplicants((prev) => prev.map((a) => selected.includes(a.id) ? { ...a, status } : a));
+        setSelected([]);
+        toast.success(`${selected.length} candidates ${status.toLowerCase()}`);
+      })
+      .catch((error) => {
+        toast.error(error?.message || 'Failed to update selected applicants');
+      });
   };
 
   const counts = {
@@ -179,7 +210,11 @@ const Applicants = () => {
         </div>
 
         <AnimatePresence>
-          {filtered.map((applicant, i) => {
+          {loading ? (
+            <div className="px-6 py-10 text-center text-sm text-[#6B7280]">Loading applicants...</div>
+          ) : filtered.length === 0 ? (
+            <div className="px-6 py-10 text-center text-sm text-[#6B7280]">No applicants found.</div>
+          ) : filtered.map((applicant, i) => {
             const StatusIcon = statusConfig[applicant.status]?.icon || Clock;
             return (
               <motion.div

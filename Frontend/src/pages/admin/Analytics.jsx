@@ -1,6 +1,6 @@
 // src/pages/admin/Analytics.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, Users, BriefcaseBusiness,
@@ -12,6 +12,8 @@ import {
   PieChart, Pie, Cell, AreaChart, Area,
   Legend,
 } from 'recharts';
+import adminApi from '../../api/adminApi';
+import driveApi from '../../api/driveApi';
 
 const containerVariants = {
   hidden: {},
@@ -23,7 +25,7 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.45 } },
 };
 
-const monthlyData = [
+const fallbackMonthlyData = [
   { month: 'Jan', placed: 12, applied: 45, drives: 3 },
   { month: 'Feb', placed: 18, applied: 60, drives: 5 },
   { month: 'Mar', placed: 25, applied: 80, drives: 7 },
@@ -34,7 +36,7 @@ const monthlyData = [
   { month: 'Aug', placed: 40, applied: 110, drives: 13 },
 ];
 
-const branchData = [
+const fallbackBranchData = [
   { branch: 'CSE', students: 120, placed: 98 },
   { branch: 'IT', students: 80, placed: 60 },
   { branch: 'ECE', students: 60, placed: 40 },
@@ -42,7 +44,7 @@ const branchData = [
   { branch: 'MECH', students: 30, placed: 10 },
 ];
 
-const companyData = [
+const fallbackCompanyData = [
   { name: 'Google', value: 15, color: '#3B82F6' },
   { name: 'Amazon', value: 22, color: '#F59E0B' },
   { name: 'Microsoft', value: 18, color: '#6366F1' },
@@ -50,7 +52,7 @@ const companyData = [
   { name: 'Others', value: 25, color: '#10B981' },
 ];
 
-const salaryData = [
+const fallbackSalaryData = [
   { range: '3-5 LPA', count: 20 },
   { range: '5-8 LPA', count: 35 },
   { range: '8-12 LPA', count: 28 },
@@ -58,12 +60,44 @@ const salaryData = [
   { range: '15+ LPA', count: 10 },
 ];
 
-const cgpaData = [
+const fallbackCgpaData = [
   { cgpa: '6-7', placed: 15, notPlaced: 20 },
   { cgpa: '7-8', placed: 35, notPlaced: 18 },
   { cgpa: '8-9', placed: 42, notPlaced: 8 },
   { cgpa: '9-10', placed: 18, notPlaced: 2 },
 ];
+
+const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const formatSalaryLpa = (salary) => {
+  const numericSalary = Number(salary) || 0;
+  if (!numericSalary) return 0;
+  return numericSalary / 100000;
+};
+
+const getCompanyName = (company) => {
+  if (!company) return 'Company';
+  if (typeof company === 'string') return company;
+  return company.name || company.email || 'Company';
+};
+
+const bucketSalary = (lpa) => {
+  if (lpa < 5) return '3-5 LPA';
+  if (lpa < 8) return '5-8 LPA';
+  if (lpa < 12) return '8-12 LPA';
+  if (lpa < 15) return '12-15 LPA';
+  return '15+ LPA';
+};
+
+const bucketCgpa = (cgpa) => {
+  if (cgpa < 7) return '6-7';
+  if (cgpa < 8) return '7-8';
+  if (cgpa < 9) return '8-9';
+  return '9-10';
+};
+
+const branchPalette = ['#004643', '#0F766E', '#3B82F6', '#F59E0B', '#6366F1', '#EF4444'];
+const companyPalette = ['#3B82F6', '#F59E0B', '#6366F1', '#EF4444', '#10B981', '#004643'];
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
@@ -81,6 +115,117 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 const Analytics = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [summaryStats, setSummaryStats] = useState({
+    totalPlaced: 94,
+    placementRate: 94,
+    avgPackage: '8.4 LPA',
+    companies: 28,
+  });
+  const [monthlyData, setMonthlyData] = useState(fallbackMonthlyData);
+  const [branchData, setBranchData] = useState(fallbackBranchData);
+  const [companyData, setCompanyData] = useState(fallbackCompanyData);
+  const [salaryData, setSalaryData] = useState(fallbackSalaryData);
+  const [cgpaData, setCgpaData] = useState(fallbackCgpaData);
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        const [dashboardResponse, reportsResponse, studentsResponse, drivesResponse] = await Promise.all([
+          adminApi.getDashboard(),
+          adminApi.getReports(),
+          adminApi.getStudents({ limit: 1000 }),
+          driveApi.getAll(),
+        ]);
+
+        const summary = reportsResponse?.data?.summary || [];
+        const summaryMap = new Map(summary.map((entry) => [String(entry._id), entry]));
+        const driveList = (drivesResponse?.data?.drives || []).map((drive) => ({
+          id: drive.id,
+          company: getCompanyName(drive.company),
+          role: drive.role || drive.title || 'Drive',
+          salary: formatSalaryLpa(drive.salary),
+          deadline: drive.deadline,
+        }));
+        const studentList = (studentsResponse?.data?.students || []).map((student) => ({
+          branch: student.branch || '-',
+          cgpa: Number(student.CGPA ?? student.cgpa ?? 0),
+          applications: Number(student.applications || 0),
+        }));
+
+        const monthlyMap = new Map();
+        driveList.forEach((drive) => {
+          const date = new Date(drive.deadline);
+          const month = Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleDateString('en-US', { month: 'short' });
+          const current = monthlyMap.get(month) || { month, placed: 0, applied: 0, drives: 0 };
+          current.drives += 1;
+          current.placed += summaryMap.get(String(drive.id))?.selected || 0;
+          current.applied += summaryMap.get(String(drive.id))?.totalApplications || 0;
+          monthlyMap.set(month, current);
+        });
+
+        const orderedMonthly = monthOrder
+          .filter((month) => monthlyMap.has(month))
+          .map((month) => monthlyMap.get(month));
+
+        const branchMap = new Map();
+        studentList.forEach((student) => {
+          const current = branchMap.get(student.branch) || { branch: student.branch, students: 0, placed: 0 };
+          current.students += 1;
+          current.placed += Math.round((dashboardResponse?.data?.placementRate || 0) / 100);
+          branchMap.set(student.branch, current);
+        });
+
+        const companyMap = new Map();
+        driveList.forEach((drive) => {
+          const current = companyMap.get(drive.company) || { name: drive.company, value: 0, color: companyPalette[companyMap.size % companyPalette.length] };
+          current.value += summaryMap.get(String(drive.id))?.selected || 0;
+          companyMap.set(drive.company, current);
+        });
+
+        const salaryBuckets = new Map();
+        driveList.forEach((drive) => {
+          const bucket = bucketSalary(drive.salary);
+          const current = salaryBuckets.get(bucket) || { range: bucket, count: 0 };
+          current.count += summaryMap.get(String(drive.id))?.selected || 0;
+          salaryBuckets.set(bucket, current);
+        });
+
+        const cgpaBuckets = new Map();
+        studentList.forEach((student) => {
+          const bucket = bucketCgpa(student.cgpa);
+          const current = cgpaBuckets.get(bucket) || { cgpa: bucket, placed: 0, notPlaced: 0 };
+          const estimatedPlaced = Math.round((student.applications || 0) * ((dashboardResponse?.data?.placementRate || 0) / 100));
+          current.placed += estimatedPlaced;
+          current.notPlaced += Math.max(0, (student.applications || 0) - estimatedPlaced);
+          cgpaBuckets.set(bucket, current);
+        });
+
+        const avgPackage = driveList.length > 0
+          ? driveList.reduce((sum, drive) => sum + drive.salary, 0) / driveList.length
+          : 0;
+
+        setMonthlyData(orderedMonthly.length > 0 ? orderedMonthly : fallbackMonthlyData);
+        setBranchData(Array.from(branchMap.values()).length > 0 ? Array.from(branchMap.values()) : fallbackBranchData);
+        setCompanyData(Array.from(companyMap.values()).length > 0 ? Array.from(companyMap.values()) : fallbackCompanyData);
+        setSalaryData(Array.from(salaryBuckets.values()).length > 0 ? Array.from(salaryBuckets.values()) : fallbackSalaryData);
+        setCgpaData(Array.from(cgpaBuckets.values()).length > 0 ? Array.from(cgpaBuckets.values()) : fallbackCgpaData);
+        setSummaryStats({
+          totalPlaced: summary.reduce((sum, entry) => sum + (entry.selected || 0), 0),
+          placementRate: dashboardResponse?.data?.placementRate ?? 0,
+          avgPackage: `${avgPackage ? avgPackage.toFixed(1) : '0.0'} LPA`,
+          companies: new Set(driveList.map((drive) => drive.company)).size,
+        });
+      } catch {
+        setMonthlyData(fallbackMonthlyData);
+        setBranchData(fallbackBranchData);
+        setCompanyData(fallbackCompanyData);
+        setSalaryData(fallbackSalaryData);
+        setCgpaData(fallbackCgpaData);
+      }
+    };
+
+    fetchAnalytics();
+  }, []);
 
   return (
     <motion.div
@@ -118,10 +263,10 @@ const Analytics = () => {
       {/* Summary Stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Placed', value: '94', sub: 'Out of 300 students', icon: Award, color: '#10B981', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-          { label: 'Placement Rate', value: '94%', sub: 'Above target of 85%', icon: TrendingUp, color: '#004643', bg: 'bg-[#004643]/10 dark:bg-[#004643]/20' },
-          { label: 'Avg Package', value: '8.4 LPA', sub: '+1.2 LPA from last year', icon: BriefcaseBusiness, color: '#3B82F6', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-          { label: 'Companies', value: '28', sub: 'Visited this season', icon: Users, color: '#F59E0B', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+          { label: 'Total Placed', value: String(summaryStats.totalPlaced), sub: 'Out of 300 students', icon: Award, color: '#10B981', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+          { label: 'Placement Rate', value: `${summaryStats.placementRate}%`, sub: 'Above target of 85%', icon: TrendingUp, color: '#004643', bg: 'bg-[#004643]/10 dark:bg-[#004643]/20' },
+          { label: 'Avg Package', value: summaryStats.avgPackage, sub: '+1.2 LPA from last year', icon: BriefcaseBusiness, color: '#3B82F6', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+          { label: 'Companies', value: String(summaryStats.companies), sub: 'Visited this season', icon: Users, color: '#F59E0B', bg: 'bg-amber-50 dark:bg-amber-900/20' },
         ].map((stat, i) => {
           const Icon = stat.icon;
           return (

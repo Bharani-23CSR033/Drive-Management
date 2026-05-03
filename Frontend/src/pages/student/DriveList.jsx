@@ -1,12 +1,14 @@
 // src/pages/student/DriveList.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   Search, SlidersHorizontal, MapPin, Clock,
   ArrowUpRight, X, ChevronDown, BriefcaseBusiness,
 } from 'lucide-react';
+import driveApi from '../../api/driveApi';
+import useAuthStore from '../../store/authStore';
 
 const containerVariants = {
   hidden: {},
@@ -18,28 +20,95 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
-const allDrives = [
-  { id: 1, company: 'Google', abbr: 'G', role: 'Software Engineer Intern', salary: '8 LPA', location: 'Bangalore', deadline: 'Apr 20', daysLeft: 2, type: 'Internship', skills: ['React', 'Node.js', 'Python'], cgpa: 7.5, color: 'bg-blue-500', eligible: true },
-  { id: 2, company: 'Amazon', abbr: 'A', role: 'Backend Developer', salary: '12 LPA', location: 'Hyderabad', deadline: 'Apr 22', daysLeft: 4, type: 'Full Time', skills: ['Java', 'AWS', 'SQL'], cgpa: 7.0, color: 'bg-amber-500', eligible: true },
-  { id: 3, company: 'Microsoft', abbr: 'MS', role: 'SDE Intern', salary: '9 LPA', location: 'Noida', deadline: 'Apr 25', daysLeft: 7, type: 'Internship', skills: ['C++', 'Azure', 'DSA'], cgpa: 8.0, color: 'bg-blue-700', eligible: true },
-  { id: 4, company: 'Zoho', abbr: 'Z', role: 'Full Stack Developer', salary: '6 LPA', location: 'Chennai', deadline: 'Apr 28', daysLeft: 10, type: 'Full Time', skills: ['React', 'Java', 'MySQL'], cgpa: 6.5, color: 'bg-red-500', eligible: true },
-  { id: 5, company: 'Swiggy', abbr: 'SW', role: 'Backend Engineer', salary: '14 LPA', location: 'Bangalore', deadline: 'May 1', daysLeft: 13, type: 'Full Time', skills: ['Go', 'Kafka', 'Redis'], cgpa: 7.5, color: 'bg-orange-500', eligible: false },
-  { id: 6, company: 'CRED', abbr: 'CR', role: 'Frontend Developer', salary: '10 LPA', location: 'Bangalore', deadline: 'May 3', daysLeft: 15, type: 'Full Time', skills: ['React', 'TypeScript', 'CSS'], cgpa: 7.0, color: 'bg-purple-500', eligible: true },
-  { id: 7, company: 'Razorpay', abbr: 'RP', role: 'Full Stack Dev', salary: '15 LPA', location: 'Bangalore', deadline: 'May 5', daysLeft: 17, type: 'Full Time', skills: ['React', 'Node.js', 'PostgreSQL'], cgpa: 7.5, color: 'bg-blue-600', eligible: true },
-  { id: 8, company: 'Infosys', abbr: 'IN', role: 'Systems Engineer', salary: '4.5 LPA', location: 'Pune', deadline: 'May 8', daysLeft: 20, type: 'Full Time', skills: ['Java', 'SQL', 'Spring'], cgpa: 6.0, color: 'bg-teal-600', eligible: true },
-];
-
 const locations = ['All Locations', 'Bangalore', 'Hyderabad', 'Chennai', 'Noida', 'Pune'];
 const types = ['All Types', 'Full Time', 'Internship'];
 const salaryRanges = ['All Salaries', 'Under 6 LPA', '6-10 LPA', '10-15 LPA', '15+ LPA'];
 
+const colors = ['bg-blue-500', 'bg-amber-500', 'bg-blue-700', 'bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-blue-600', 'bg-teal-600'];
+
+const toLpa = (salary) => {
+  const numericSalary = Number(salary) || 0;
+  const lpa = numericSalary / 100000;
+  return `${Number.isInteger(lpa) ? lpa : lpa.toFixed(1)} LPA`;
+};
+
+const toDateLabel = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const getDaysLeft = (deadline) => {
+  if (!deadline) return 0;
+  const date = new Date(deadline);
+  if (Number.isNaN(date.getTime())) return 0;
+  const diff = date.getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+};
+
+const getCompanyName = (company) => {
+  if (!company) return 'Company';
+  if (typeof company === 'string') return company;
+  return company.name || company.email || 'Company';
+};
+
+const getAbbr = (company) => {
+  const name = getCompanyName(company);
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'D';
+};
+
+const getColor = (index) => colors[index % colors.length];
+
+const mapDrive = (drive, index, userCgpa) => ({
+  id: drive.id,
+  company: getCompanyName(drive.company),
+  abbr: getAbbr(drive.company),
+  role: drive.role || drive.title || 'Drive',
+  salary: toLpa(drive.salary),
+  location: drive.location || '-',
+  deadline: toDateLabel(drive.deadline),
+  daysLeft: getDaysLeft(drive.deadline),
+  type: drive.type || 'Full Time',
+  skills: Array.isArray(drive.skills) ? drive.skills : drive.eligibility?.skills || [],
+  cgpa: drive.cgpa ?? drive.eligibility?.cgpa ?? 0,
+  color: getColor(index),
+  eligible: userCgpa > 0 ? userCgpa >= (drive.cgpa ?? drive.eligibility?.cgpa ?? 0) : true,
+  status: drive.status,
+});
+
 const DriveList = () => {
+  const { user } = useAuthStore();
   const [search, setSearch] = useState('');
   const [location, setLocation] = useState('All Locations');
   const [type, setType] = useState('All Types');
   const [salary, setSalary] = useState('All Salaries');
   const [showFilters, setShowFilters] = useState(false);
   const [activeChips, setActiveChips] = useState([]);
+  const [drives, setDrives] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const userCgpa = user?.cgpa ?? user?.CGPA ?? 0;
+
+  useEffect(() => {
+    const fetchDrives = async () => {
+      setLoading(true);
+      try {
+        const response = await driveApi.getAll();
+        const list = response?.data?.drives || [];
+        setDrives(list.map((drive, index) => mapDrive(drive, index, userCgpa)));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDrives();
+  }, [userCgpa]);
 
   const toggleChip = (chip) => {
     setActiveChips((prev) =>
@@ -55,7 +124,7 @@ const DriveList = () => {
     setActiveChips([]);
   };
 
-  const filtered = allDrives.filter((d) => {
+  const filtered = drives.filter((d) => {
     const matchSearch =
       d.company.toLowerCase().includes(search.toLowerCase()) ||
       d.role.toLowerCase().includes(search.toLowerCase());
@@ -74,7 +143,7 @@ const DriveList = () => {
     return matchSearch && matchLocation && matchType && matchChips && matchSalary;
   });
 
-  const allSkills = [...new Set(allDrives.flatMap((d) => d.skills))];
+  const allSkills = [...new Set(drives.flatMap((d) => d.skills))];
   const hasFilters = search || location !== 'All Locations' || type !== 'All Types' || salary !== 'All Salaries' || activeChips.length > 0;
 
   return (
@@ -95,7 +164,7 @@ const DriveList = () => {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[#6B7280] bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] px-3 py-1.5 rounded-lg">
-            {allDrives.filter((d) => d.eligible).length} eligible for you
+            {drives.filter((d) => d.eligible).length} eligible for you
           </span>
         </div>
       </motion.div>
@@ -200,7 +269,19 @@ const DriveList = () => {
       {/* Drive Cards Grid */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <AnimatePresence>
-          {filtered.length === 0 ? (
+          {loading ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="col-span-full flex flex-col items-center justify-center py-20 text-center"
+            >
+              <div className="w-16 h-16 bg-[#004643]/10 dark:bg-[#004643]/20 rounded-2xl flex items-center justify-center mb-4">
+                <BriefcaseBusiness size={28} className="text-[#004643]" />
+              </div>
+              <p className="text-base font-semibold text-[#111827] dark:text-[#E6F4F1]">Loading drives</p>
+              <p className="text-sm text-[#6B7280] mt-1">Fetching the latest placement drives</p>
+            </motion.div>
+          ) : filtered.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

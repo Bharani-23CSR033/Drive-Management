@@ -1,12 +1,13 @@
 // src/pages/shared/Calendar.jsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, X,
   Clock, MapPin, Users, BriefcaseBusiness,
 } from 'lucide-react';
 import Modal from '../../components/common/Modal';
+import driveApi from '../../api/driveApi';
 
 const containerVariants = {
   hidden: {},
@@ -18,16 +19,6 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
-const events = [
-  { id: 1, day: 18, month: 3, title: 'Google — OA Round', type: 'assessment', company: 'Google', time: '10:00 AM', location: 'Online', color: 'bg-blue-500' },
-  { id: 2, day: 20, month: 3, title: 'Amazon Drive Deadline', type: 'deadline', company: 'Amazon', time: '11:59 PM', location: '-', color: 'bg-red-500' },
-  { id: 3, day: 22, month: 3, title: 'Microsoft — Technical Round', type: 'interview', company: 'Microsoft', time: '2:00 PM', location: 'Zoom', color: 'bg-blue-700' },
-  { id: 4, day: 25, month: 3, title: 'Zoho Drive Opens', type: 'drive', company: 'Zoho', time: '9:00 AM', location: 'Campus', color: 'bg-red-600' },
-  { id: 5, day: 27, month: 3, title: 'CRED — HR Round', type: 'interview', company: 'CRED', time: '3:00 PM', location: 'Google Meet', color: 'bg-purple-500' },
-  { id: 6, day: 28, month: 3, title: 'Razorpay Drive Deadline', type: 'deadline', company: 'Razorpay', time: '11:59 PM', location: '-', color: 'bg-blue-600' },
-  { id: 7, day: 5, month: 4, title: 'Swiggy — Online Assessment', type: 'assessment', company: 'Swiggy', time: '11:00 AM', location: 'Online', color: 'bg-orange-500' },
-];
-
 const typeConfig = {
   assessment: { label: 'Assessment', color: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' },
   deadline: { label: 'Deadline', color: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400' },
@@ -38,12 +29,43 @@ const typeConfig = {
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+const getEventColor = (status) => {
+  const colorMap = {
+    'Open': 'bg-blue-500',
+    'Active': 'bg-emerald-500',
+    'Closed': 'bg-red-500',
+    'draft': 'bg-gray-500',
+  };
+  return colorMap[status] || 'bg-blue-500';
+};
+
 const Calendar = () => {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
+
+  useEffect(() => {
+    const fetchCalendarEvents = async () => {
+      try {
+        setLoading(true);
+        const data = await driveApi.getCalendarEvents();
+        setEvents(data.events || []);
+        setError(null);
+      } catch (err) {
+        setError('Failed to load calendar events');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCalendarEvents();
+  }, []);
 
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -58,21 +80,37 @@ const Calendar = () => {
     else setCurrentMonth(m => m + 1);
   };
 
-  const getEventsForDay = (day) => events.filter((e) =>
-    e.day === day && e.month === currentMonth
-  );
+  const getEventsForDay = (day) => {
+    if (loading) return [];
+    return events.filter((e) => {
+      const eventDate = new Date(e.date);
+      return eventDate.getDate() === day && eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear;
+    });
+  };
 
   const upcomingEvents = events
     .filter((e) => {
-      const eDate = new Date(currentYear, e.month, e.day);
+      const eDate = new Date(e.date);
       return eDate >= today;
     })
-    .sort((a, b) => {
-      const dateA = new Date(currentYear, a.month, a.day);
-      const dateB = new Date(currentYear, b.month, b.day);
-      return dateA - dateB;
-    })
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
     .slice(0, 5);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004643]"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <p className="text-red-600">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -156,9 +194,9 @@ const Calendar = () => {
                       <div
                         key={event.id}
                         onClick={(e) => { e.stopPropagation(); setSelectedEvent(event); }}
-                        className={`${event.color} text-white text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-90 transition-opacity`}
+                        className={`${getEventColor(event.status)} text-white text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-90 transition-opacity`}
                       >
-                        {event.title.split('—')[0].trim()}
+                        {event.title.split('—')[0].trim().substring(0, 12)}
                       </div>
                     ))}
                     {dayEvents.length > 2 && (
@@ -188,33 +226,36 @@ const Calendar = () => {
 
           {/* Upcoming Events */}
           <div className="bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-2xl p-5 space-y-4">
-            <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">Upcoming Events</p>
+            <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">Upcoming Drives</p>
 
             {upcomingEvents.length === 0 ? (
-              <p className="text-xs text-[#6B7280] text-center py-4">No upcoming events</p>
+              <p className="text-xs text-[#6B7280] text-center py-4">No upcoming drives</p>
             ) : (
               <div className="space-y-3">
-                {upcomingEvents.map((event) => (
-                  <motion.div
-                    key={event.id}
-                    whileHover={{ x: 2 }}
-                    onClick={() => setSelectedEvent(event)}
-                    className="flex items-start gap-3 cursor-pointer group"
-                  >
-                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${event.color}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-[#111827] dark:text-[#E6F4F1] group-hover:text-[#004643] dark:group-hover:text-[#0F766E] transition-colors truncate">
-                        {event.title}
-                      </p>
-                      <p className="text-xs text-[#6B7280] mt-0.5">
-                        {MONTHS[event.month].slice(0, 3)} {event.day} · {event.time}
-                      </p>
-                    </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${typeConfig[event.type]?.color}`}>
-                      {typeConfig[event.type]?.label}
-                    </span>
-                  </motion.div>
-                ))}
+                {upcomingEvents.map((event) => {
+                  const eventDate = new Date(event.date);
+                  return (
+                    <motion.div
+                      key={event.id}
+                      whileHover={{ x: 2 }}
+                      onClick={() => setSelectedEvent(event)}
+                      className="flex items-start gap-3 cursor-pointer group"
+                    >
+                      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${getEventColor(event.status)}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-[#111827] dark:text-[#E6F4F1] group-hover:text-[#004643] dark:group-hover:text-[#0F766E] transition-colors truncate">
+                          {event.title}
+                        </p>
+                        <p className="text-xs text-[#6B7280] mt-0.5">
+                          {MONTHS[eventDate.getMonth()].slice(0, 3)} {eventDate.getDate()} {eventDate.getFullYear()}
+                        </p>
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 bg-[#004643]/10 text-[#004643] dark:text-[#0F766E]">
+                        {event.status}
+                      </span>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -225,24 +266,24 @@ const Calendar = () => {
       <Modal
         isOpen={!!selectedEvent}
         onClose={() => setSelectedEvent(null)}
-        title="Event Details"
+        title="Drive Details"
         size="sm"
       >
         {selectedEvent && (
           <div className="space-y-4">
-            <div className={`${selectedEvent.color} rounded-xl p-4 text-white`}>
-              <p className="text-white/70 text-xs">{selectedEvent.company}</p>
+            <div className={`${getEventColor(selectedEvent.status)} rounded-xl p-4 text-white`}>
+              <p className="text-white/70 text-xs">Drive Deadline</p>
               <p className="text-lg font-bold mt-0.5">{selectedEvent.title}</p>
               <span className="inline-block mt-2 text-xs bg-white/20 px-2.5 py-0.5 rounded-full capitalize">
-                {selectedEvent.type}
+                {selectedEvent.status}
               </span>
             </div>
 
             <div className="space-y-3">
               {[
-                { icon: Clock, label: 'Time', value: selectedEvent.time },
-                { icon: MapPin, label: 'Location', value: selectedEvent.location },
-                { icon: BriefcaseBusiness, label: 'Company', value: selectedEvent.company },
+                { icon: Clock, label: 'Deadline', value: new Date(selectedEvent.date).toLocaleDateString() },
+                { icon: MapPin, label: 'Location', value: selectedEvent.location || 'N/A' },
+                { icon: BriefcaseBusiness, label: 'Status', value: selectedEvent.status },
               ].map((item, i) => {
                 const Icon = item.icon;
                 return (

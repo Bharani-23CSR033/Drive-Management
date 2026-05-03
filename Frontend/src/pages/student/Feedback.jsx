@@ -6,6 +6,7 @@ import {
   Star, Send, CheckCircle, MessageSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import feedbackApi from '../../api/feedbackApi';
 
 const containerVariants = {
   hidden: {},
@@ -63,11 +64,21 @@ const Feedback = () => {
       toast.error('Please write your feedback');
       return;
     }
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    setSubmitted(true);
-    toast.success('Feedback submitted successfully');
+
+    try {
+      setLoading(true);
+      await feedbackApi.submit({
+        driveId: selectedDrive.id,
+        rating: Math.round(avgRating),
+        text: feedback,
+      });
+      setSubmitted(true);
+      toast.success('Feedback submitted successfully');
+    } catch (error) {
+      toast.error(error?.message || 'Failed to submit feedback');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {

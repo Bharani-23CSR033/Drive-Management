@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import Input from '../../components/common/Input';
+import authApi from '../../api/authApi';
 import useAuthStore from '../../store/authStore';
 import { ROLES } from '../../constants/roles';
 
@@ -29,7 +30,7 @@ const itemVariants = {
 
 const Login = () => {
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
+  const { setAuth, setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
 
   const {
@@ -43,14 +44,27 @@ const Login = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      // Temporary mock login — replace with API call later
-      await new Promise((r) => setTimeout(r, 1000));
-      const mockUser = { name: 'Bhagath K', email: data.email, role: ROLES.STUDENT };
-      setAuth(mockUser, 'mock-token-123');
+      const response = await authApi.login(data);
+      const token = response?.data?.token;
+      const user = response?.data?.user;
+
+      if (!token || !user) {
+        throw new Error('Invalid login response');
+      }
+
+      setAuth(user, token);
+      setUser(user);
+
+      const paths = {
+        [ROLES.STUDENT]: '/student/dashboard',
+        [ROLES.ADMIN]: '/admin/dashboard',
+        [ROLES.COMPANY]: '/company/dashboard',
+      };
+
       toast.success('Welcome back!');
-      navigate('/student/dashboard');
+      navigate(paths[user.role] || '/student/dashboard');
     } catch (err) {
-      toast.error('Invalid credentials');
+      toast.error(err?.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
@@ -206,17 +220,14 @@ const Login = () => {
           {/* Role Quick Login (Dev Helper) */}
           <motion.div variants={itemVariants} className="grid grid-cols-3 gap-3">
             {[
-              { role: ROLES.STUDENT, label: 'Student', path: '/student/dashboard' },
-              { role: ROLES.ADMIN, label: 'Admin', path: '/admin/dashboard' },
-              { role: ROLES.COMPANY, label: 'Company', path: '/company/dashboard' },
+              { role: ROLES.STUDENT, label: 'Student' },
+              { role: ROLES.ADMIN, label: 'Admin' },
+              { role: ROLES.COMPANY, label: 'Company' },
             ].map((item) => (
               <button
                 key={item.role}
                 type="button"
-                onClick={() => {
-                  setAuth({ name: item.label, role: item.role }, 'mock-token');
-                  navigate(item.path);
-                }}
+                onClick={() => toast('Use the form to sign in with a real account')}
                 className="py-2 px-3 rounded-xl border border-[#E5E7EB] dark:border-[#1F4D4A] text-xs font-medium text-[#6B7280] hover:border-[#004643] hover:text-[#004643] dark:hover:text-[#E6F4F1] transition-all"
               >
                 {item.label}

@@ -9,6 +9,7 @@ import {
   MapPin, Clock, Users, Award,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import companyApi from '../../api/companyApi';
 
 const steps = ['Basic Info', 'Requirements', 'Process', 'Review'];
 
@@ -70,11 +71,35 @@ const PostDrive = () => {
   };
 
   const handleSubmit = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setSubmitted(true);
-    toast.success('Drive posted successfully');
+    if (!form.role.trim() || !form.salary.trim() || !form.location.trim() || !form.deadline.trim()) {
+      toast.error('Please fill the required fields');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await companyApi.postDrive({
+        title: form.role,
+        role: form.role,
+        type: form.type,
+        salary: form.salary,
+        location: form.location,
+        deadline: form.deadline,
+        openings: form.openings,
+        cgpa: form.cgpa,
+        batch: form.batch,
+        branches: form.branches,
+        skills: form.skills,
+        description: form.description,
+        selectionProcess: form.rounds,
+      });
+      setSubmitted(true);
+      toast.success('Drive posted successfully');
+    } catch (error) {
+      toast.error(error?.message || 'Failed to post drive');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {

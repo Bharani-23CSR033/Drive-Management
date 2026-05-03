@@ -1,6 +1,6 @@
 // src/pages/admin/Attendance.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search, CheckCircle, XCircle,
@@ -8,6 +8,8 @@ import {
   Check, X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import adminApi from '../../api/adminApi';
+import driveApi from '../../api/driveApi';
 
 const containerVariants = {
   hidden: {},
@@ -19,13 +21,13 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
-const drives = [
+const fallbackDrives = [
   { id: 1, company: 'Google', role: 'SWE Intern', date: 'Apr 18, 2026', abbr: 'G', color: 'bg-blue-500' },
   { id: 2, company: 'Amazon', role: 'Backend Dev', date: 'Apr 19, 2026', abbr: 'A', color: 'bg-amber-500' },
   { id: 3, company: 'Zoho', role: 'Full Stack', date: 'Apr 20, 2026', abbr: 'Z', color: 'bg-red-500' },
 ];
 
-const initialStudents = [
+const fallbackStudents = [
   { id: 1, name: 'Arjun Sharma', college: 'VIT Chennai', branch: 'CSE', present: true },
   { id: 2, name: 'Priya Menon', college: 'PSG Tech', branch: 'IT', present: true },
   { id: 3, name: 'Rahul Nair', college: 'Kongu Engg', branch: 'CSE', present: false },
@@ -36,11 +38,104 @@ const initialStudents = [
   { id: 8, name: 'Meena Iyer', college: 'CEG Anna Univ', branch: 'IT', present: false },
 ];
 
+const formatDateLabel = (value) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const getCompanyName = (company) => {
+  if (!company) return 'Company';
+  if (typeof company === 'string') return company;
+  return company.name || company.email || 'Company';
+};
+
+const getAbbr = (company) => {
+  const name = getCompanyName(company);
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('') || 'D';
+};
+
+const mapDrive = (drive) => ({
+  id: drive.id,
+  company: getCompanyName(drive.company),
+  role: drive.role || drive.title || 'Drive',
+  date: formatDateLabel(drive.deadline),
+  abbr: getAbbr(drive.company),
+  color: ['bg-blue-500', 'bg-amber-500', 'bg-red-500', 'bg-purple-500', 'bg-teal-600'][Math.abs(String(drive.id).length) % 5],
+});
+
+const mapStudent = (student) => ({
+  id: student.id,
+  name: student.name || 'Student',
+  college: student.college || '-',
+  branch: student.branch || '-',
+  present: false,
+});
+
+const mergeAttendance = (roster, attendance = []) => {
+  const attendanceMap = new Map(attendance.map((item) => [String(item.studentId || item.student?._id || item.student), String(item.status || '').toLowerCase()]));
+  return roster.map((student) => ({
+    ...student,
+    present: attendanceMap.get(String(student.id)) === 'present',
+  }));
+};
+
 const Attendance = () => {
-  const [selectedDrive, setSelectedDrive] = useState(drives[0]);
-  const [students, setStudents] = useState(initialStudents);
+  const [drives, setDrives] = useState(fallbackDrives);
+  const [selectedDrive, setSelectedDrive] = useState(fallbackDrives[0]);
+  const [baseStudents, setBaseStudents] = useState(fallbackStudents);
+  const [students, setStudents] = useState(fallbackStudents);
   const [search, setSearch] = useState('');
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [drivesResponse, studentsResponse] = await Promise.all([
+          driveApi.getAll(),
+          adminApi.getStudents({ limit: 1000 }),
+        ]);
+
+        const driveList = (drivesResponse?.data?.drives || []).map((drive) => mapDrive(drive));
+        const studentList = (studentsResponse?.data?.students || []).map((student) => mapStudent(student));
+
+        setDrives(driveList.length > 0 ? driveList : fallbackDrives);
+        setBaseStudents(studentList.length > 0 ? studentList : fallbackStudents);
+        setSelectedDrive((current) => {
+          if (driveList.length === 0) return current;
+          const found = driveList.find((drive) => drive.id === current?.id);
+          return found || driveList[0];
+        });
+      } catch {
+        setDrives(fallbackDrives);
+        setBaseStudents(fallbackStudents);
+        setStudents(fallbackStudents);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
+
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      if (!selectedDrive?.id) return;
+
+      setLoading(true);
+      try {
+        const response = await adminApi.getAttendance(selectedDrive.id);
+        const attendance = response?.data?.attendance || [];
+        setStudents(mergeAttendance(baseStudents, attendance));
+      } catch {
+        setStudents(baseStudents);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttendance();
+  }, [selectedDrive?.id, baseStudents]);
 
   const filtered = students.filter((s) =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -63,9 +158,19 @@ const Attendance = () => {
     setSaved(false);
   };
 
-  const handleSave = () => {
-    setSaved(true);
-    toast.success('Attendance saved successfully');
+  const handleSave = async () => {
+    try {
+      await adminApi.markAttendance(selectedDrive.id, {
+        attendance: students.map((student) => ({
+          studentId: student.id,
+          status: student.present ? 'present' : 'absent',
+        })),
+      });
+      setSaved(true);
+      toast.success('Attendance saved successfully');
+    } catch (error) {
+      toast.error(error?.message || 'Failed to save attendance');
+    }
   };
 
   return (
@@ -182,7 +287,15 @@ const Attendance = () => {
         </div>
 
         {/* Rows */}
-        {filtered.map((student, i) => (
+        {loading ? (
+          <div className="py-16 text-center">
+            <p className="text-sm text-[#6B7280]">Loading attendance...</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-sm text-[#6B7280]">No students found</p>
+          </div>
+        ) : filtered.map((student, i) => (
           <motion.div
             key={student.id}
             initial={{ opacity: 0 }}

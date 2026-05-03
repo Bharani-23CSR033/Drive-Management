@@ -1,6 +1,6 @@
 // src/pages/admin/Dashboard.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -13,6 +13,7 @@ import {
   ResponsiveContainer, LineChart, Line, PieChart,
   Pie, Cell,
 } from 'recharts';
+import adminApi from '../../api/adminApi';
 
 const containerVariants = {
   hidden: {},
@@ -67,7 +68,7 @@ const pieData = [
   { name: 'Not Applied', value: 86, color: '#E5E7EB' },
 ];
 
-const recentDrives = [
+const fallbackRecentDrives = [
   { company: 'Google', role: 'SWE Intern', applicants: 45, status: 'Active', deadline: 'Apr 20', abbr: 'G', color: 'bg-blue-500' },
   { company: 'Amazon', role: 'Backend Dev', applicants: 62, status: 'Active', deadline: 'Apr 22', abbr: 'A', color: 'bg-amber-500' },
   { company: 'Microsoft', role: 'SDE Intern', applicants: 38, status: 'Closed', deadline: 'Apr 10', abbr: 'MS', color: 'bg-blue-700' },
@@ -105,6 +106,51 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const AdminDashboard = () => {
+  const [dashboardStats, setDashboardStats] = useState({
+    totalStudents: 300,
+    activeDrives: 18,
+    selectedStudents: 94,
+    placementRate: 94,
+  });
+  const [recentDrives, setRecentDrives] = useState(fallbackRecentDrives);
+
+  useEffect(() => {
+    const fetchAdminDashboard = async () => {
+      try {
+        const [dashboardResponse, reportsResponse] = await Promise.all([
+          adminApi.getDashboard(),
+          adminApi.getReports(),
+        ]);
+
+        const dashboard = dashboardResponse?.data || {};
+        const reportDrives = reportsResponse?.data?.drives || [];
+        const summary = reportsResponse?.data?.summary || [];
+        const summaryMap = new Map(summary.map((entry) => [String(entry._id), entry]));
+
+        setDashboardStats({
+          totalStudents: dashboard.totalStudents ?? 0,
+          activeDrives: reportDrives.filter((drive) => String(drive.status || '').toLowerCase() !== 'closed').length || dashboard.totalDrives || 0,
+          selectedStudents: summary.reduce((sum, entry) => sum + (entry.selected || 0), 0),
+          placementRate: dashboard.placementRate ?? 0,
+        });
+
+        setRecentDrives(reportDrives.length > 0 ? reportDrives.slice(0, 5).map((drive) => ({
+          company: drive.company?.name || drive.company || 'Company',
+          role: drive.title || drive.role || 'Drive',
+          applicants: summaryMap.get(String(drive._id))?.totalApplications || 0,
+          status: String(drive.status || '').toLowerCase() === 'closed' ? 'Closed' : 'Active',
+          deadline: drive.deadline ? new Date(drive.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-',
+          abbr: (drive.company?.name || drive.company || 'D').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('') || 'D',
+          color: ['bg-blue-500', 'bg-amber-500', 'bg-blue-700', 'bg-red-500', 'bg-teal-600'][Math.abs(String(drive._id).length) % 5],
+        })) : fallbackRecentDrives);
+      } catch {
+        setRecentDrives(fallbackRecentDrives);
+      }
+    };
+
+    fetchAdminDashboard();
+  }, []);
+
   return (
     <motion.div
       variants={containerVariants}
@@ -143,10 +189,10 @@ const AdminDashboard = () => {
       {/* Stat Cards */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Students', value: '300', sub: 'Compare from last month', trend: '+24', up: true, pct: '8%', spark: [240, 255, 260, 270, 280, 290, 295, 300], color: '#3B82F6' },
-          { label: 'Active Drives', value: '18', sub: 'Compare from last month', trend: '+5', up: true, pct: '28%', spark: [10, 11, 13, 12, 14, 15, 16, 18], color: '#004643' },
-          { label: 'Students Placed', value: '94', sub: 'Compare from last month', trend: '+12', up: true, pct: '15%', spark: [60, 65, 70, 75, 78, 82, 88, 94], color: '#10B981' },
-          { label: 'Placement Rate', value: '94%', sub: 'Compare from last month', trend: '+2%', up: true, pct: '2%', spark: [88, 89, 90, 91, 91, 92, 93, 94], color: '#F59E0B' },
+          { label: 'Total Students', value: String(dashboardStats.totalStudents), sub: 'Compare from last month', trend: '+24', up: true, pct: '8%', spark: [240, 255, 260, 270, 280, 290, 295, 300], color: '#3B82F6' },
+          { label: 'Active Drives', value: String(dashboardStats.activeDrives), sub: 'Compare from last month', trend: '+5', up: true, pct: '28%', spark: [10, 11, 13, 12, 14, 15, 16, 18], color: '#004643' },
+          { label: 'Students Placed', value: String(dashboardStats.selectedStudents), sub: 'Compare from last month', trend: '+12', up: true, pct: '15%', spark: [60, 65, 70, 75, 78, 82, 88, 94], color: '#10B981' },
+          { label: 'Placement Rate', value: `${dashboardStats.placementRate}%`, sub: 'Compare from last month', trend: '+2%', up: true, pct: '2%', spark: [88, 89, 90, 91, 91, 92, 93, 94], color: '#F59E0B' },
         ].map((s, i) => (
           <div key={i} className="bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-2xl p-5 space-y-3">
             <div className="flex items-center justify-between">

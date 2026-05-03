@@ -11,6 +11,7 @@ const studentApi = {
   getDashboard: () => axiosInstance.get('/student/dashboard'),
   getApplications: () => axiosInstance.get('/student/applications'),
   getNotifications: () => axiosInstance.get('/student/notifications'),
+  markNotificationRead: (id) => axiosInstance.put(`/notifications/${id}/read`),
   apply: (data) => axiosInstance.post('/applications', data),
 };
 

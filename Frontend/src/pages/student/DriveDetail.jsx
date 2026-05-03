@@ -1,6 +1,6 @@
 // src/pages/student/DriveDetail.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -9,42 +9,75 @@ import {
   CalendarDays, Building2, BriefcaseBusiness,
 } from 'lucide-react';
 import Modal from '../../components/common/Modal';
+import driveApi from '../../api/driveApi';
+import studentApi from '../../api/studentApi';
+import toast from 'react-hot-toast';
 
-const drives = {
-  1: {
-    id: 1,
-    company: 'Google',
-    abbr: 'G',
-    color: 'bg-blue-500',
-    role: 'Software Engineer Intern',
-    salary: '8 LPA',
-    salaryBreakdown: '66,667/month',
-    location: 'Bangalore, Karnataka',
-    deadline: 'April 20, 2026',
-    daysLeft: 2,
-    type: 'Internship',
-    duration: '6 months',
-    openings: 15,
-    cgpa: 7.5,
-    skills: ['React', 'Node.js', 'Python', 'DSA'],
-    about: 'Google LLC is an American multinational technology company focusing on artificial intelligence, online advertising, search engine technology, cloud computing, computer software, quantum computing, e-commerce, and consumer electronics.',
-    overview: 'This internship role is part of Google\'s STEP (Student Training in Engineering Program). You will work alongside full-time engineers on real-world projects that impact billions of users worldwide.',
-    eligibility: [
-      'B.E/B.Tech in CSE, IT, or related fields',
-      'Minimum CGPA of 7.5',
-      '2026 graduating batch only',
-      'No active backlogs',
-      'Strong fundamentals in DSA and System Design',
-    ],
-    selectionProcess: [
-      { round: 'Online Assessment', desc: 'DSA problems — 2 coding questions in 90 minutes', duration: '90 min' },
-      { round: 'Technical Round 1', desc: 'Problem solving and algorithms discussion', duration: '45 min' },
-      { round: 'Technical Round 2', desc: 'System design and past project discussion', duration: '60 min' },
-      { round: 'HR Round', desc: 'Culture fit and offer discussion', duration: '30 min' },
-    ],
-    benefits: ['Competitive stipend', 'Accommodation allowance', 'Return offer possibility', 'Mentorship from senior engineers'],
-  },
+const colors = ['bg-blue-500', 'bg-amber-500', 'bg-blue-700', 'bg-red-500', 'bg-orange-500', 'bg-purple-500', 'bg-blue-600', 'bg-teal-600'];
+
+const formatSalary = (salary) => {
+  const numericSalary = Number(salary) || 0;
+  const lpa = numericSalary / 100000;
+  return `${Number.isInteger(lpa) ? lpa : lpa.toFixed(1)} LPA`;
 };
+
+const formatDateLabel = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value ? String(value) : '-';
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+};
+
+const getDaysLeft = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 0;
+  return Math.max(0, Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+};
+
+const getCompanyName = (company) => {
+  if (!company) return 'Company';
+  if (typeof company === 'string') return company;
+  return company.name || company.email || 'Company';
+};
+
+const getAbbr = (company) => {
+  const name = getCompanyName(company);
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('') || 'D';
+};
+
+const getColor = (name) => colors[Math.abs((name || '').split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % colors.length];
+
+const mapDrive = (drive) => ({
+  id: drive.id,
+  company: getCompanyName(drive.company),
+  abbr: getAbbr(drive.company),
+  color: getColor(getCompanyName(drive.company)),
+  role: drive.role || drive.title || 'Drive',
+  salary: formatSalary(drive.salary),
+  salaryBreakdown: drive.salary ? `${Math.round((Number(drive.salary) || 0) / 1000).toLocaleString()}/month` : '-',
+  location: drive.location || '-',
+  deadline: formatDateLabel(drive.deadline),
+  daysLeft: getDaysLeft(drive.deadline),
+  type: drive.type || 'Full Time',
+  duration: drive.duration || `${Array.isArray(drive.selectionProcess) ? drive.selectionProcess.length : 0} rounds`,
+  openings: drive.openings || drive.applicants || 0,
+  cgpa: drive.cgpa ?? drive.eligibility?.cgpa ?? 0,
+  skills: Array.isArray(drive.skills) ? drive.skills : drive.eligibility?.skills || [],
+  about: drive.about || drive.description || '',
+  overview: drive.overview || drive.description || '',
+  eligibility: Array.isArray(drive.eligibility)
+    ? drive.eligibility
+    : [
+        drive.eligibility?.cgpa ? `Minimum CGPA of ${drive.eligibility.cgpa}` : null,
+        drive.eligibility?.batch ? `${drive.eligibility.batch} graduating batch only` : null,
+        ...(drive.eligibility?.skills?.length ? [`Strong fundamentals in ${drive.eligibility.skills.join(', ')}`] : []),
+      ].filter(Boolean),
+  selectionProcess: Array.isArray(drive.selectionProcess)
+    ? drive.selectionProcess.map((step) => (typeof step === 'string' ? { round: step, desc: '', duration: '' } : step))
+    : [],
+  benefits: Array.isArray(drive.benefits)
+    ? drive.benefits
+    : ['Competitive stipend', 'Return offer possibility', 'Mentorship from senior engineers'],
+});
 
 const DriveDetail = () => {
   const { id } = useParams();
@@ -52,15 +85,68 @@ const DriveDetail = () => {
   const [showModal, setShowModal] = useState(false);
   const [applied, setApplied] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [drive, setDrive] = useState(null);
+  const [relatedDrives, setRelatedDrives] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const drive = drives[id] || drives[1];
+  useEffect(() => {
+    const fetchDrive = async () => {
+      setLoading(true);
+      try {
+        const [driveResponse, drivesResponse, applicationsResponse] = await Promise.all([
+          driveApi.getById(id),
+          driveApi.getAll(),
+          studentApi.getApplications(),
+        ]);
 
-  const handleApply = () => {
-    setApplied(true);
-    setShowModal(false);
+        const currentDrive = driveResponse?.data?.drive;
+        const mappedDrive = currentDrive ? mapDrive(currentDrive) : null;
+        setDrive(mappedDrive);
+
+        const list = drivesResponse?.data?.drives || [];
+        setRelatedDrives(list
+          .filter((item) => String(item.id) !== String(id))
+          .slice(0, 2)
+          .map((item) => ({
+            id: item.id,
+            company: getCompanyName(item.company),
+            role: item.role || item.title || 'Drive',
+          })));
+
+        const applications = applicationsResponse?.data?.applications || [];
+        setApplied(applications.some((application) => String(application.driveId || application.drive?.id || application.drive) === String(id)));
+      } catch (error) {
+        toast.error(error?.message || 'Failed to load drive details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchDrive();
+    }
+  }, [id]);
+
+  const handleApply = async () => {
+    try {
+      await studentApi.apply({ driveId: id });
+      setApplied(true);
+      setShowModal(false);
+      toast.success('Application submitted');
+    } catch (error) {
+      toast.error(error?.message || 'Failed to apply');
+    }
   };
 
   const tabs = ['overview', 'eligibility', 'process', 'benefits'];
+
+  if (loading || !drive) {
+    return (
+      <div className="py-20 text-center text-[#6B7280] dark:text-[#E6F4F1]/60">
+        Loading drive details...
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -221,10 +307,10 @@ const DriveDetail = () => {
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">{step.round}</p>
                         <span className="text-xs text-[#6B7280] bg-[#FAFAFA] dark:bg-[#0F2F2C] border border-[#E5E7EB] dark:border-[#1F4D4A] px-2 py-0.5 rounded-md">
-                          {step.duration}
+                          {step.duration || '-'}
                         </span>
                       </div>
-                      <p className="text-xs text-[#6B7280] mt-1">{step.desc}</p>
+                      <p className="text-xs text-[#6B7280] mt-1">{step.desc || 'Details available after application review'}</p>
                     </div>
                   </div>
                 ))}
@@ -303,10 +389,10 @@ const DriveDetail = () => {
           {/* Other Drives */}
           <div className="bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-2xl p-5 space-y-3">
             <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">Similar Drives</p>
-            {[
+            {(relatedDrives.length > 0 ? relatedDrives : [
               { company: 'Microsoft', role: 'SDE Intern', id: 3 },
               { company: 'Amazon', role: 'Backend Dev', id: 2 },
-            ].map((d, i) => (
+            ]).map((d, i) => (
               <Link
                 key={i}
                 to={`/student/drives/${d.id}`}

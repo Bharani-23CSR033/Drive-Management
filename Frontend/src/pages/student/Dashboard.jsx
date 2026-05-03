@@ -1,6 +1,6 @@
 // src/pages/student/Dashboard.jsx
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -9,6 +9,8 @@ import {
   ArrowUpRight, CalendarDays, Bell, ChevronRight,
   CircleDot, MoreHorizontal,
 } from 'lucide-react';
+import studentApi from '../../api/studentApi';
+import driveApi from '../../api/driveApi';
 import useAuthStore from '../../store/authStore';
 
 const containerVariants = {
@@ -68,7 +70,7 @@ const MiniBar = ({ data, color }) => {
   );
 };
 
-const recentApplications = [
+const fallbackRecentApplications = [
   { company: 'Google', role: 'Software Engineer Intern', status: 'Shortlisted', date: 'Apr 15', statusColor: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400' },
   { company: 'Amazon', role: 'Backend Developer', status: 'Applied', date: 'Apr 14', statusColor: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400' },
   { company: 'Zoho', role: 'Full Stack Developer', status: 'Applied', date: 'Apr 13', statusColor: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400' },
@@ -76,13 +78,13 @@ const recentApplications = [
   { company: 'Wipro', role: 'DevOps Engineer', status: 'Applied', date: 'Apr 9', statusColor: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400' },
 ];
 
-const upcomingDrives = [
+const fallbackUpcomingDrives = [
   { company: 'Microsoft', role: 'SDE Intern', salary: '8 LPA', deadline: 'Apr 20', daysLeft: 2, abbr: 'MS' },
   { company: 'Swiggy', role: 'Backend Engineer', salary: '12 LPA', deadline: 'Apr 22', daysLeft: 4, abbr: 'SW' },
   { company: 'CRED', role: 'Frontend Dev', salary: '10 LPA', deadline: 'Apr 25', daysLeft: 7, abbr: 'CR' },
 ];
 
-const activityFeed = [
+const fallbackActivityFeed = [
   { label: 'Shortlisted at Google', sub: '2 hours ago', dot: 'bg-emerald-500' },
   { label: 'Applied to Amazon', sub: '1 day ago', dot: 'bg-blue-500' },
   { label: 'Profile updated', sub: '2 days ago', dot: 'bg-[#004643]' },
@@ -92,6 +94,78 @@ const activityFeed = [
 
 const Dashboard = () => {
   const { user } = useAuthStore();
+  const [recentApplications, setRecentApplications] = useState(fallbackRecentApplications);
+  const [upcomingDrives, setUpcomingDrives] = useState(fallbackUpcomingDrives);
+  const [activityFeed, setActivityFeed] = useState(fallbackActivityFeed);
+  const [dashboardStats, setDashboardStats] = useState({
+    appliedCount: 12,
+    shortlistedCount: 4,
+    rejectedCount: 2,
+    activeDrives: 24,
+  });
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const [dashboardResponse, applicationsResponse, drivesResponse, notificationsResponse] = await Promise.all([
+          studentApi.getDashboard(),
+          studentApi.getApplications(),
+          driveApi.getAll(),
+          studentApi.getNotifications(),
+        ]);
+
+        const stats = dashboardResponse?.data?.stats || {};
+        const applications = applicationsResponse?.data?.applications || [];
+        const drives = drivesResponse?.data?.drives || [];
+        const notifications = notificationsResponse?.data?.notifications || [];
+
+        setDashboardStats({
+          appliedCount: stats.appliedCount ?? applications.length,
+          shortlistedCount: stats.shortlistedCount ?? applications.filter((application) => application.status === 'Shortlisted').length,
+          rejectedCount: stats.rejectedCount ?? applications.filter((application) => application.status === 'Rejected').length,
+          activeDrives: drives.length,
+        });
+
+        setRecentApplications(applications.slice(0, 5).map((application) => ({
+          company: application.drive?.company?.name || application.drive?.company || 'Company',
+          role: application.drive?.role || application.drive?.title || 'Drive',
+          status: application.status,
+          date: application.createdAt ? new Date(application.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-',
+          statusColor: application.status === 'Shortlisted'
+            ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400'
+            : application.status === 'Rejected'
+              ? 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400'
+              : 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400',
+        })));
+
+        setUpcomingDrives(drives.slice(0, 3).map((drive) => ({
+          company: drive.company?.name || drive.company || 'Company',
+          role: drive.role || drive.title || 'Drive',
+          salary: `${Math.round((Number(drive.salary) || 0) / 100000)} LPA`,
+          deadline: drive.deadline ? new Date(drive.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-',
+          daysLeft: drive.deadline ? Math.max(0, Math.ceil((new Date(drive.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0,
+          abbr: (drive.company?.name || drive.company || 'D')
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part.charAt(0).toUpperCase())
+            .join('') || 'D',
+        })));
+
+        setActivityFeed(notifications.slice(0, 5).map((notification, index) => ({
+          label: notification.title || notification.message || 'Notification',
+          sub: notification.createdAt ? new Date(notification.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Recently',
+          dot: ['bg-emerald-500', 'bg-blue-500', 'bg-[#004643]', 'bg-blue-500', 'bg-gray-400'][index % 5],
+        })));
+      } catch {
+        setRecentApplications(fallbackRecentApplications);
+        setUpcomingDrives(fallbackUpcomingDrives);
+        setActivityFeed(fallbackActivityFeed);
+      }
+    };
+
+    fetchDashboard();
+  }, []);
 
   return (
     <motion.div
@@ -152,7 +226,7 @@ const Dashboard = () => {
         {[
           {
             label: 'Applied Drives',
-            value: '12',
+            value: String(dashboardStats.appliedCount),
             sub: 'Compare from last week',
             trend: '+3',
             up: true,
@@ -162,7 +236,7 @@ const Dashboard = () => {
           },
           {
             label: 'Shortlisted',
-            value: '4',
+            value: String(dashboardStats.shortlistedCount),
             sub: 'Compare from last week',
             trend: '+1',
             up: true,
@@ -172,7 +246,7 @@ const Dashboard = () => {
           },
           {
             label: 'Pending Review',
-            value: '6',
+            value: String(Math.max(dashboardStats.appliedCount - dashboardStats.shortlistedCount - dashboardStats.rejectedCount, 0)),
             sub: 'Compare from last week',
             trend: '-2',
             up: false,
@@ -182,7 +256,7 @@ const Dashboard = () => {
           },
           {
             label: 'Active Drives',
-            value: '24',
+            value: String(dashboardStats.activeDrives),
             sub: 'Compare from last week',
             trend: '+5',
             up: true,
