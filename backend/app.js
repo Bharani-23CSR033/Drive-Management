@@ -14,9 +14,16 @@ const { notFound, errorHandler } = require("./middleware/error.middleware");
 
 const app = express();
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:5173",
+  "http://localhost:4173",
+  "https://drive-management.vercel.app",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: "https://drive-management.vercel.app",
+    origin: allowedOrigins,
     credentials: true,
   })
 );

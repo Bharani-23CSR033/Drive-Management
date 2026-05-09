@@ -13,6 +13,14 @@ import authApi from '../../api/authApi';
 import useAuthStore from '../../store/authStore';
 import { ROLES } from '../../constants/roles';
 
+const isTransientLoginError = (error) => {
+  return (
+    error?.code === 'ECONNABORTED' ||
+    error?.message?.toLowerCase().includes('timeout') ||
+    error?.message?.toLowerCase().includes('network error')
+  );
+};
+
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -44,7 +52,18 @@ const Login = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      const response = await authApi.login(data);
+      let response;
+
+      try {
+        response = await authApi.login(data);
+      } catch (error) {
+        if (isTransientLoginError(error)) {
+          response = await authApi.login(data);
+        } else {
+          throw error;
+        }
+      }
+
       const token = response?.data?.token;
       const user = response?.data?.user;
 
@@ -64,7 +83,14 @@ const Login = () => {
       toast.success('Welcome back!');
       navigate(paths[user.role] || '/student/dashboard');
     } catch (err) {
-      toast.error(err?.message || 'Invalid credentials');
+      const message = err?.message || err?.data?.message || '';
+
+      if (message.toLowerCase().includes('timeout') || message.toLowerCase().includes('network error')) {
+        toast.error('Login took too long. Please try again in a moment.');
+        return;
+      }
+
+      toast.error(err?.data?.message || message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
