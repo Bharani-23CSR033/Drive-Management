@@ -19,14 +19,36 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:4173",
   "https://drive-management.vercel.app",
+  /https:\/\/.+\.vercel\.app$/,
 ].filter(Boolean);
 
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const isAllowed = allowedOrigins.some((allowedOrigin) => {
+      if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+
+      return allowedOrigin === origin;
+    });
+
+    if (isAllowed) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+};
+
 app.use(
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-  })
+  cors(corsOptions)
 );
+app.options("*", cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
