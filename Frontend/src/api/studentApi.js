@@ -5,6 +5,9 @@ import axiosInstance from './axiosInstance';
 const studentApi = {
   getProfile: (id) => axiosInstance.get(`/student/profile/${id}`),
   updateProfile: (id, data) => axiosInstance.put(`/student/profile/${id}`, data),
+  uploadProfilePicture: (formData) => axiosInstance.post('/student/profile-pic/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   uploadResume: (formData) => axiosInstance.post('/student/resume/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),

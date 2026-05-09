@@ -73,7 +73,7 @@ const TopBar = ({ darkMode, toggleDarkMode, onMobileMenuOpen }) => {
         </button>
 
         <div className="flex items-center gap-2 pl-2 border-l border-[#E5E7EB] dark:border-[#1F4D4A]">
-          <Avatar name={user?.name || 'User'} size="sm" />
+          <Avatar name={user?.name || 'User'} src={user?.profilePic || ''} size="sm" />
           <div className="hidden sm:block">
             <p className="text-sm font-medium text-[#111827] dark:text-[#E6F4F1] leading-tight">
               {user?.name || 'User'}

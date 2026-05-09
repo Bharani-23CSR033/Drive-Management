@@ -130,7 +130,7 @@ const Sidebar = () => {
       {/* Bottom: User + Logout */}
       <div className="p-3 border-t border-[#E5E7EB] dark:border-[#1F4D4A] space-y-2">
         <div className="flex items-center gap-3 px-2 py-2">
-          <Avatar name={user?.name || 'User'} size="sm" />
+          <Avatar name={user?.name || 'User'} src={user?.profilePic || ''} size="sm" />
           <AnimatePresence>
             {!collapsed && (
               <motion.div

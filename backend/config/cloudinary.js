@@ -1,10 +1,18 @@
 const { v2: cloudinary } = require("cloudinary");
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_NAME;
+const apiKey = process.env.CLOUDINARY_API_KEY;
+const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+const isConfigured = Boolean(cloudName && apiKey && apiSecret);
+
+if (isConfigured) {
+  cloudinary.config({
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
+  });
+}
 
 const uploadFileBuffer = async ({
   buffer,
@@ -15,6 +23,10 @@ const uploadFileBuffer = async ({
   const base64 = buffer.toString("base64");
   const dataUri = `data:${mimeType};base64,${base64}`;
 
+  if (!isConfigured) {
+    throw new Error("Cloudinary is not configured");
+  }
+
   const uploaded = await cloudinary.uploader.upload(dataUri, {
     folder,
     resource_type: resourceType,
@@ -23,4 +35,4 @@ const uploadFileBuffer = async ({
   return uploaded.secure_url;
 };
 
-module.exports = { cloudinary, uploadFileBuffer };
+module.exports = { cloudinary, uploadFileBuffer, isConfigured };

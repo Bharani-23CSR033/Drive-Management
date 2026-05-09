@@ -10,6 +10,7 @@ import {
 import toast from 'react-hot-toast';
 import studentApi from '../../api/studentApi';
 import useAuthStore from '../../store/authStore';
+import Avatar from '../../components/common/Avatar';
 
 const containerVariants = {
   hidden: {},
@@ -21,31 +22,33 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
+const buildEmptyProfile = (user) => ({
+  name: user?.name || '',
+  email: user?.email || '',
+  phone: user?.phone || '',
+  location: user?.location || '',
+  college: user?.college || '',
+  branch: user?.branch || '',
+  year: user?.year || '',
+  cgpa: user?.cgpa ?? user?.CGPA ?? '',
+  batch: user?.batch || '',
+  bio: user?.bio || '',
+  skills: Array.isArray(user?.skills) ? user.skills : [],
+  achievements: Array.isArray(user?.achievements) ? user.achievements : [],
+  resumeUrl: user?.resumeUrl || '',
+  profilePic: user?.profilePic || '',
+});
+
 const Profile = () => {
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const [editMode, setEditMode] = useState(false);
   const [newSkill, setNewSkill] = useState('');
+  const [newAchievement, setNewAchievement] = useState('');
   const [showSkillInput, setShowSkillInput] = useState(false);
+  const [showAchievementInput, setShowAchievementInput] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [profile, setProfile] = useState({
-    name: user?.name || 'Bhagath K',
-    email: user?.email || 'bhagath@kongu.edu',
-    phone: '+91 98765 43210',
-    location: 'Erode, Tamil Nadu',
-    college: 'Kongu Engineering College',
-    branch: 'Computer Science Engineering',
-    year: '4th Year',
-    cgpa: '8.2',
-    batch: '2022-2026',
-    bio: 'Passionate full-stack developer with strong fundamentals in DSA and system design. Looking for SDE roles in product-based companies.',
-    skills: ['React', 'Node.js', 'Python', 'DSA', 'MongoDB', 'Express.js'],
-    achievements: [
-      'Smart India Hackathon 2024 — Finalist',
-      'LeetCode — 500+ problems solved',
-      'GitHub — 200+ contributions',
-    ],
-  });
+  const [profile, setProfile] = useState(() => buildEmptyProfile(user));
 
   const [tempProfile, setTempProfile] = useState({ ...profile });
 
@@ -63,24 +66,20 @@ const Profile = () => {
         const student = profileResponse?.data?.student;
         if (student) {
           const mappedProfile = {
-            name: student.name || user?.name || 'Student',
+            name: student.name || user?.name || '',
             email: student.email || user?.email || '',
-            phone: student.phone || '+91 98765 43210',
-            location: student.location || 'Erode, Tamil Nadu',
-            college: student.college || 'Kongu Engineering College',
-            branch: student.branch || student.department || 'Computer Science Engineering',
-            year: student.year || '4th Year',
-            cgpa: student.CGPA ?? student.cgpa ?? '8.2',
-            batch: student.batch || '2022-2026',
-            bio: student.bio || 'Passionate full-stack developer with strong fundamentals in DSA and system design. Looking for SDE roles in product-based companies.',
-            skills: Array.isArray(student.skills) ? student.skills : ['React', 'Node.js', 'Python', 'DSA', 'MongoDB', 'Express.js'],
-            achievements: Array.isArray(student.achievements) && student.achievements.length > 0
-              ? student.achievements
-              : [
-                  'Smart India Hackathon 2024 — Finalist',
-                  'LeetCode — 500+ problems solved',
-                  'GitHub — 200+ contributions',
-                ],
+            phone: student.phone || '',
+            location: student.location || '',
+            college: student.college || '',
+            branch: student.branch || '',
+            year: student.year || '',
+            cgpa: student.CGPA ?? student.cgpa ?? '',
+            batch: student.batch || '',
+            bio: student.bio || '',
+            skills: Array.isArray(student.skills) ? student.skills : [],
+            achievements: Array.isArray(student.achievements) ? student.achievements : [],
+            resumeUrl: student.resumeUrl || '',
+            profilePic: student.profilePic || '',
           };
 
           setProfile(mappedProfile);
@@ -113,9 +112,16 @@ const Profile = () => {
       setLoading(true);
       const response = await studentApi.updateProfile(user._id, {
         name: tempProfile.name,
+        phone: tempProfile.phone,
+        location: tempProfile.location,
         college: tempProfile.college,
+        branch: tempProfile.branch,
+        year: tempProfile.year,
+        batch: tempProfile.batch,
         CGPA: tempProfile.cgpa,
         skills: tempProfile.skills,
+        bio: tempProfile.bio,
+        achievements: tempProfile.achievements,
       });
       const student = response?.data?.student;
       const savedProfile = student
@@ -123,14 +129,23 @@ const Profile = () => {
             ...tempProfile,
             name: student.name || tempProfile.name,
             email: student.email || tempProfile.email,
+            phone: student.phone || tempProfile.phone,
+            location: student.location || tempProfile.location,
             college: student.college || tempProfile.college,
+            branch: student.branch || tempProfile.branch,
+            year: student.year || tempProfile.year,
+            batch: student.batch || tempProfile.batch,
             cgpa: student.CGPA ?? student.cgpa ?? tempProfile.cgpa,
             skills: Array.isArray(student.skills) ? student.skills : tempProfile.skills,
+            bio: student.bio || tempProfile.bio,
+            achievements: Array.isArray(student.achievements) ? student.achievements : tempProfile.achievements,
+            resumeUrl: student.resumeUrl || tempProfile.resumeUrl,
           }
         : { ...tempProfile };
 
       setProfile(savedProfile);
       setTempProfile(savedProfile);
+      setUser({ ...(user || {}), ...savedProfile });
       setEditMode(false);
       toast.success('Profile updated successfully');
     } catch (error) {
@@ -153,8 +168,89 @@ const Profile = () => {
     }
   };
 
+  const addAchievement = () => {
+    if (newAchievement.trim() && !tempProfile.achievements.includes(newAchievement.trim())) {
+      setTempProfile((p) => ({ ...p, achievements: [...p.achievements, newAchievement.trim()] }));
+      setNewAchievement('');
+      setShowAchievementInput(false);
+    }
+  };
+
   const removeSkill = (skill) => {
     setTempProfile((p) => ({ ...p, skills: p.skills.filter((s) => s !== skill) }));
+  };
+
+  const removeAchievement = (index) => {
+    setTempProfile((p) => ({ ...p, achievements: p.achievements.filter((_, idx) => idx !== index) }));
+  };
+
+  const handleResumeUpload = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append('resume', file);
+
+      const response = await studentApi.uploadResume(formData);
+      const resumeUrl = response?.data?.resumeUrl || '';
+      const student = response?.data?.student;
+
+      setProfile((current) => ({
+        ...current,
+        resumeUrl: student?.resumeUrl || resumeUrl || current.resumeUrl,
+      }));
+      setTempProfile((current) => ({
+        ...current,
+        resumeUrl: student?.resumeUrl || resumeUrl || current.resumeUrl,
+      }));
+      toast.success('Resume uploaded successfully');
+    } catch (error) {
+      toast.error(error?.message || 'Failed to upload resume');
+    } finally {
+      setLoading(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleProfilePicUpload = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append('profilePic', file);
+
+      const response = await studentApi.uploadProfilePicture(formData);
+      const profilePic = response?.data?.profilePic || '';
+      const student = response?.data?.student;
+      const nextProfilePic = student?.profilePic || profilePic;
+
+      setProfile((current) => ({
+        ...current,
+        profilePic: nextProfilePic || current.profilePic,
+      }));
+      setTempProfile((current) => ({
+        ...current,
+        profilePic: nextProfilePic || current.profilePic,
+      }));
+      setUser({ ...(user || {}), profilePic: nextProfilePic || '' });
+
+      toast.success('Profile picture uploaded successfully');
+    } catch (error) {
+      toast.error(error?.message || 'Failed to upload profile picture');
+    } finally {
+      setLoading(false);
+      event.target.value = '';
+    }
   };
 
   const displayProfile = editMode ? tempProfile : profile;
@@ -215,13 +311,17 @@ const Profile = () => {
           {/* Avatar Card */}
           <div className="bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-2xl p-6 text-center space-y-4">
             <div className="relative inline-block">
-              <div className="w-24 h-24 bg-[#004643] rounded-2xl flex items-center justify-center text-white text-3xl font-bold mx-auto">
-                {displayProfile.name.charAt(0)}
-              </div>
+              <Avatar
+                name={displayProfile.name || 'Student'}
+                src={displayProfile.profilePic || ''}
+                size="xl"
+                className="mx-auto rounded-2xl"
+              />
               {editMode && (
-                <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-xl flex items-center justify-center shadow-sm hover:border-[#004643] transition-all">
+                <label className="absolute -bottom-2 -right-2 w-8 h-8 bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-xl flex items-center justify-center shadow-sm hover:border-[#004643] transition-all cursor-pointer">
                   <Upload size={13} className="text-[#6B7280]" />
-                </button>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleProfilePicUpload} />
+                </label>
               )}
             </div>
 
@@ -267,15 +367,20 @@ const Profile = () => {
                 <FileText size={16} className="text-red-600 dark:text-red-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-[#111827] dark:text-[#E6F4F1] truncate">Bhagath_Resume_2026.pdf</p>
-                <p className="text-xs text-[#6B7280]">Updated Apr 10</p>
+                <p className="text-xs font-semibold text-[#111827] dark:text-[#E6F4F1] truncate">
+                  {displayProfile.resumeUrl ? 'Uploaded resume' : 'No resume uploaded yet'}
+                </p>
+                <p className="text-xs text-[#6B7280]">
+                  {displayProfile.resumeUrl ? 'Resume available' : 'Upload a PDF resume'}
+                </p>
               </div>
               <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0" />
             </div>
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[#E5E7EB] dark:border-[#1F4D4A] rounded-xl text-xs font-medium text-[#6B7280] hover:border-[#004643] hover:text-[#004643] dark:hover:text-[#E6F4F1] transition-all">
+            <label className="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-[#E5E7EB] dark:border-[#1F4D4A] rounded-xl text-xs font-medium text-[#6B7280] hover:border-[#004643] hover:text-[#004643] dark:hover:text-[#E6F4F1] transition-all cursor-pointer">
               <Upload size={13} />
-              Upload New Resume
-            </button>
+              {loading ? 'Uploading...' : 'Upload New Resume'}
+              <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleResumeUpload} />
+            </label>
           </div>
         </motion.div>
 
@@ -342,12 +447,25 @@ const Profile = () => {
               {[
                 { label: 'College', key: 'college' },
                 { label: 'Branch', key: 'branch' },
+                { label: 'Year', key: 'year' },
                 { label: 'CGPA', key: 'cgpa' },
                 { label: 'Batch', key: 'batch' },
               ].map((field) => (
                 <div key={field.key} className="space-y-1.5">
                   <label className="text-xs font-medium text-[#6B7280]">{field.label}</label>
-                  {editMode ? (
+                  {editMode && field.key === 'year' ? (
+                    <select
+                      value={tempProfile.year}
+                      onChange={(e) => setTempProfile((p) => ({ ...p, year: e.target.value }))}
+                      className="w-full px-3 py-2.5 bg-[#FAFAFA] dark:bg-[#0F2F2C] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-xl text-sm text-[#111827] dark:text-[#E6F4F1] focus:outline-none focus:border-[#004643] focus:ring-2 focus:ring-[#004643]/15 transition-all"
+                    >
+                      <option value="">Select year</option>
+                      <option value="1st Year">1st Year</option>
+                      <option value="2nd Year">2nd Year</option>
+                      <option value="3rd Year">3rd Year</option>
+                      <option value="4th Year">4th Year</option>
+                    </select>
+                  ) : editMode ? (
                     <input
                       type="text"
                       value={tempProfile[field.key]}
@@ -423,24 +541,58 @@ const Profile = () => {
 
           {/* Achievements */}
           <div className="bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-2xl p-6 space-y-4">
-            <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">Achievements</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1]">Achievements</p>
+              {editMode && (
+                <button
+                  onClick={() => setShowAchievementInput(true)}
+                  className="flex items-center gap-1 text-xs text-[#004643] dark:text-[#0F766E] font-medium hover:underline"
+                >
+                  <Plus size={12} />
+                  Add Achievement
+                </button>
+              )}
+            </div>
+
             <div className="space-y-2">
-              {displayProfile.achievements.map((item, i) => (
-                <div key={i} className="flex items-center justify-between gap-3 p-3 bg-[#FAFAFA] dark:bg-[#0F2F2C] rounded-xl border border-[#E5E7EB] dark:border-[#1F4D4A]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 bg-[#004643] rounded-full flex-shrink-0" />
-                    <p className="text-sm text-[#111827] dark:text-[#E6F4F1]">{item}</p>
-                  </div>
-                  {editMode && (
-                    <button
-                      onClick={() => setTempProfile((p) => ({ ...p, achievements: p.achievements.filter((_, idx) => idx !== i) }))}
-                      className="text-[#6B7280] hover:text-red-500 transition-colors flex-shrink-0"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
+              <AnimatePresence>
+                {displayProfile.achievements.map((item, i) => (
+                  <motion.div key={item} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex items-center justify-between gap-3 p-3 bg-[#FAFAFA] dark:bg-[#0F2F2C] rounded-xl border border-[#E5E7EB] dark:border-[#1F4D4A]">
+                    <div className="flex items-center gap-3">
+                      <div className="w-1.5 h-1.5 bg-[#004643] rounded-full flex-shrink-0" />
+                      <p className="text-sm text-[#111827] dark:text-[#E6F4F1]">{item}</p>
+                    </div>
+                    {editMode && (
+                      <button
+                        onClick={() => removeAchievement(i)}
+                        className="text-[#6B7280] hover:text-red-500 transition-colors flex-shrink-0"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {editMode && showAchievementInput && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newAchievement}
+                    onChange={(e) => setNewAchievement(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addAchievement()}
+                    placeholder="Add achievement..."
+                    autoFocus
+                    className="px-3 py-1.5 bg-[#FAFAFA] dark:bg-[#0F2F2C] border border-[#004643] rounded-lg text-xs text-[#111827] dark:text-[#E6F4F1] focus:outline-none w-full"
+                  />
+                  <button onClick={addAchievement} className="text-[#004643] dark:text-[#0F766E]">
+                    <CheckCircle size={16} />
+                  </button>
+                  <button onClick={() => { setShowAchievementInput(false); setNewAchievement(''); }} className="text-[#6B7280]">
+                    <X size={16} />
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 

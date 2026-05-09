@@ -4,6 +4,7 @@ const {
   getStudentProfile,
   updateStudentProfile,
   uploadResume,
+  uploadProfilePicture,
   getStudentDashboard,
   getStudentApplications,
   getStudentNotifications,
@@ -16,6 +17,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.get("/profile/:id", authMiddleware, authorizeRoles("student", "admin"), getStudentProfile);
 router.put("/profile/:id", authMiddleware, authorizeRoles("student", "admin"), updateStudentProfile);
+router.post("/profile-pic/upload", authMiddleware, authorizeRoles("student"), upload.single("profilePic"), uploadProfilePicture);
 router.post("/resume/upload", authMiddleware, authorizeRoles("student"), upload.single("resume"), uploadResume);
 router.get("/dashboard", authMiddleware, authorizeRoles("student"), getStudentDashboard);
 router.get("/applications", authMiddleware, authorizeRoles("student"), getStudentApplications);

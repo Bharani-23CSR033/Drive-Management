@@ -91,7 +91,7 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
                   <Bell size={18} />
                   <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
                 </button>
-                <Avatar name={user?.name || 'User'} size="sm" />
+                <Avatar name={user?.name || 'User'} src={user?.profilePic || ''} size="sm" />
               </div>
             ) : (
               <div className="hidden md:flex items-center gap-2">

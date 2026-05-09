@@ -42,7 +42,21 @@ const updateStudentProfile = async (req, res, next) => {
       return res.status(403).json({ success: false, data: {}, message: "Not allowed" });
     }
 
-    const allowedFields = ["name", "college", "CGPA", "skills", "profilePic"];
+    const allowedFields = [
+      "name",
+      "phone",
+      "location",
+      "college",
+      "branch",
+      "year",
+      "batch",
+      "CGPA",
+      "skills",
+      "bio",
+      "achievements",
+      "profilePic",
+      "resumeUrl",
+    ];
     const updates = {};
 
     allowedFields.forEach((field) => {
@@ -50,6 +64,24 @@ const updateStudentProfile = async (req, res, next) => {
         updates[field] = req.body[field];
       }
     });
+
+    if (updates.skills && !Array.isArray(updates.skills)) {
+      updates.skills = String(updates.skills)
+        .split(",")
+        .map((skill) => skill.trim())
+        .filter(Boolean);
+    }
+
+    if (updates.achievements && !Array.isArray(updates.achievements)) {
+      updates.achievements = String(updates.achievements)
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    if (updates.CGPA !== undefined && updates.CGPA !== null && updates.CGPA !== "") {
+      updates.CGPA = Number(updates.CGPA);
+    }
 
     const student = await User.findByIdAndUpdate(id, updates, { new: true }).select("-password -otp -otpExpiresAt");
     if (!student) {
@@ -94,6 +126,30 @@ const uploadResume = async (req, res, next) => {
       success: true,
       data: { resumeUrl, student },
       message: "Resume uploaded successfully",
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const uploadProfilePicture = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, data: {}, message: "Profile image is required" });
+    }
+
+    const profilePic = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+
+    const student = await User.findByIdAndUpdate(
+      req.user._id,
+      { profilePic },
+      { new: true }
+    ).select("-password -otp -otpExpiresAt");
+
+    return res.status(200).json({
+      success: true,
+      data: { profilePic, student },
+      message: "Profile picture uploaded successfully",
     });
   } catch (error) {
     return next(error);
@@ -177,6 +233,7 @@ module.exports = {
   getStudentProfile,
   updateStudentProfile,
   uploadResume,
+  uploadProfilePicture,
   getStudentDashboard,
   getStudentApplications,
   getStudentNotifications,
