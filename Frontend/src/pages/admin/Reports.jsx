@@ -106,7 +106,7 @@ const Reports = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#111827] dark:text-[#E6F4F1]">Reports</h1>
           <p className="text-sm text-[#6B7280] dark:text-[#E6F4F1]/50 mt-0.5">
-            Generate and download placement reports
+            Generate and Download placement reports
           </p>
         </div>
         <div className="relative">

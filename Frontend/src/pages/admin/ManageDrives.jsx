@@ -352,7 +352,7 @@ const ManageDrives = () => {
               onClick={() => handleDelete(deleteModal?.id)}
               className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600 transition-all"
             >
-              Delete
+              Delete 
             </button>
           </div>
         </div>
