@@ -423,7 +423,7 @@ const Analytics = () => {
         <motion.div variants={itemVariants} className="space-y-4">
           <div className="bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-2xl p-6">
             <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1] mb-1">Salary Distribution</p>
-            <p className="text-xs text-[#6B7280] mb-5">Number of students per salary range</p>
+            <p className="text-xs text-[#6B7280] mb-5">Number of Students Per Salary Range</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={salaryData} barSize={28}>
                 <XAxis dataKey="range" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />

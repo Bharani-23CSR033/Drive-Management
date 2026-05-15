@@ -319,8 +319,8 @@ const Attendance = () => {
                 : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
             }`}>
               {student.present
-                ? <><CheckCircle size={10} /> Present</>
-                : <><XCircle size={10} /> Absent</>
+                ? <><CheckCircle size={10} /> Present </>
+                : <><XCircle size={10} /> Absent </>
               }
             </span>
 

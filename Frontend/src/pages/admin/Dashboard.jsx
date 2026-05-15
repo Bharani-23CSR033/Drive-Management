@@ -165,7 +165,7 @@ const AdminDashboard = () => {
           <p className="text-sm text-[#6B7280] dark:text-[#E6F4F1]/50 font-medium">Admin Dashboard</p>
           <h1 className="text-2xl font-bold text-[#111827] dark:text-[#E6F4F1] mt-0.5">Placement Overview</h1>
           <p className="text-sm text-[#6B7280] dark:text-[#E6F4F1]/50 mt-0.5">
-            Monitor drives, students, and placement statistics
+            Monitor drives, students, and placement Statistics
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -334,7 +334,7 @@ const AdminDashboard = () => {
           {/* Line Chart */}
           <div className="bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] rounded-2xl p-5">
             <p className="text-sm font-semibold text-[#111827] dark:text-[#E6F4F1] mb-1">Drive Activity</p>
-            <p className="text-xs text-[#6B7280] mb-4">New drives per week</p>
+            <p className="text-xs text-[#6B7280] mb-4">New Drives per week</p>
             <ResponsiveContainer width="100%" height={100}>
               <LineChart data={trendData}>
                 <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
