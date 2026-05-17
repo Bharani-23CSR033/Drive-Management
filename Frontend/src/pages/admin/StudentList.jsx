@@ -109,7 +109,7 @@ const StudentList = () => {
         <div className="flex items-center gap-2">
           {selected.length > 0 && (
             <span className="text-xs bg-[#004643]/10 dark:bg-[#004643]/20 text-[#004643] dark:text-[#E6F4F1] px-3 py-1.5 rounded-lg font-medium">
-              {selected.length} selected
+              {selected.length} Selected
             </span>
           )}
           <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-[#143C3A] border border-[#E5E7EB] dark:border-[#1F4D4A] text-sm font-medium text-[#111827] dark:text-[#E6F4F1] hover:border-[#004643] transition-all">

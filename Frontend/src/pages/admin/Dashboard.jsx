@@ -165,7 +165,7 @@ const AdminDashboard = () => {
           <p className="text-sm text-[#6B7280] dark:text-[#E6F4F1]/50 font-medium">Admin Dashboard</p>
           <h1 className="text-2xl font-bold text-[#111827] dark:text-[#E6F4F1] mt-0.5">Placement Overview</h1>
           <p className="text-sm text-[#6B7280] dark:text-[#E6F4F1]/50 mt-0.5">
-            Monitor drives, students, and placement Statistics
+            Monitor Drives, Students, and placement Statistics
           </p>
         </div>
         <div className="flex items-center gap-2">
