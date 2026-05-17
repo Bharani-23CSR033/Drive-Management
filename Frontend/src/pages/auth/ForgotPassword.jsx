@@ -103,7 +103,7 @@ const ForgotPassword = () => {
                 className="flex items-center gap-2 text-sm text-[#6B7280] hover:text-[#004643] dark:hover:text-[#E6F4F1] transition-colors"
               >
                 <ArrowLeft size={14} />
-                Back to login
+                Back to Login
               </Link>
             </motion.div>
           ) : (
@@ -139,7 +139,7 @@ const ForgotPassword = () => {
                 className="inline-flex items-center gap-2 text-sm text-[#004643] dark:text-[#0F766E] font-medium hover:underline"
               >
                 <ArrowLeft size={14} />
-                Back to login
+                Back to Login
               </Link>
             </motion.div>
           )}
