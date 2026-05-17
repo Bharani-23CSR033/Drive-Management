@@ -81,7 +81,7 @@ const Attendance = () => {
         <div>
           <h1 className="text-2xl font-bold text-[#111827] dark:text-[#E6F4F1]">Attendance</h1>
           <p className="text-sm text-[#6B7280] dark:text-[#E6F4F1]/50 mt-0.5">
-            Mark and track student attendance for placement drives
+            Mark and Track Student Attendance for placement drives
           </p>
         </div>
         <div className="flex items-center gap-2">
